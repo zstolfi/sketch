@@ -53,9 +53,12 @@ public:
 	Dimension size  () const { return {m_W, m_H}; }
 
 	// Setters
-	void setSize  (Dimension d) { m_W = d.W, m_H = d.H; }
+	void setSize  (Dimension d) {
+		m_W = d.W;
+		m_H = d.H;
+		// TODO: look up the right SDL calls and such
+	}
 	void updatePixels() { SDL_UpdateWindowSurface(sdlWindow); }
-
 };
 
 struct AppState {
@@ -140,7 +143,7 @@ bool detectEvents(AppState& s) {
 					s.penSize = std::max(0u, s.penSize-1);
 					break;
 				case SDLK_RIGHTBRACKET:
-					s.penSize = std::min(20u, s.penSize+1);
+					s.penSize = std::min(100u, s.penSize+1);
 					break;
 			} break;
 	}
