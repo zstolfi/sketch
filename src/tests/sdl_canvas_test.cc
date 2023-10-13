@@ -1,6 +1,6 @@
 /*
 	TODO: Makefile
-	em++ sdl_canvas_test.cc -std=c++20 -sUSE_SDL=2 -sEXPORTED_FUNCTIONS=_main,_setJsPressure -sEXPORTED_RUNTIME_METHODS=cwrap -o test.html
+	em++ sdl_canvas_test.cc -std=c++20 -sUSE_SDL=2 -sEXPORTED_FUNCTIONS=_main,_setJsPressure -sEXPORTED_RUNTIME_METHODS=cwrap -o web/test.html
 */
 
 #include <SDL2/SDL.h>

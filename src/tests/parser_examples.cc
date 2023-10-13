@@ -1,5 +1,5 @@
 /*
-	em++ parser_examples.cc -std=c++23 -sUSE_SDL=2 -o parser.html
+	em++ parser_examples.cc -std=c++23 -sUSE_SDL=2 -o web/parser.html
 */
 
 #include <emscripten.h>

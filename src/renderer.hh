@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
-#include <cmath>
+#include <algorithm>
+#include "math.hh"
 
 // Raw Data Types:
 struct RawPoint  { int16_t x, y; };
@@ -39,8 +40,44 @@ public:
 			pixels[i] = MapRGB(255,255,255);
 	}
 
+	void drawLine(RawPoint a, RawPoint b) {
+		// auto [xMin, xMax] = std::minmax(a.x, b.x);
+		// auto [yMin, yMax] = std::minmax(a.y, b.y);
+		// unsigned x0=std::max<unsigned>(  0, xMin-2);
+		// unsigned y0=std::max<unsigned>(  0, yMin-2);
+		// unsigned x1=std::min<unsigned>(W-1, xMax+2);
+		// unsigned y1=std::min<unsigned>(H-1, yMax+2);
+		unsigned x0 = 0, x1 = W-1;
+		unsigned y0 = 0, y1 = H-1;
+
+		for (unsigned y=y0; y<=y1; y++)
+		for (unsigned x=x0; x<=x1; x++) {
+			float px = x - a.x + 0.5;
+			float py = y - a.y + 0.5;
+			float bx = b.x - a.x;
+			float by = b.y - a.y;
+			float c;
+			// Circle case
+			if (bx == 0 && by == 0)
+				c = 255*clamp(std::hypot(px, py)-1, 0, 1);
+
+			float len = std::hypot(bx, by);
+			float h = (px*bx + py*by)/(bx*bx + by*by);
+			c = 255*clamp(hypot(px - h*bx, py - h*by)-1, 0, 1);
+			// set (darken)
+			auto& pixel = pixels[y*W+x];
+			if ((pixel >> 8 & 0xFF) > c) // Temporary hack
+				pixel = MapRGB(c,c,c);
+		}
+	}
+
 	void displayRaw(const RawSketch& sketch) {
-		/* ... */
+		for (RawStroke s : sketch) {
+			if (s.size() == 1) { drawLine(s[0], s[0]); continue; }
+			for (std::size_t i=1; i<s.size(); i++) {
+				drawLine(s[i-1], s[i]);
+			}
+		}
 	}
 
 };

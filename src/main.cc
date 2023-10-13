@@ -8,13 +8,18 @@
 #include "window.hh"
 #include "renderer.hh"
 
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 struct AppState {
 	bool quit = false;
 	
 	RawSketch example;
 };
 
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 void draw(Window& w, Renderer& r, const AppState& s) {
+	std::cout << "Rendering...\n";
 	r.clear();
 	r.displayRaw(s.example);
 	w.updatePixels();
@@ -26,6 +31,8 @@ bool detectEvents(AppState& s) {
 		;
 	return input;
 }
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 void appLoopBody(Window& w, Renderer& r, AppState& s) {
 	if (detectEvents(s)) draw(w,r,s);
@@ -50,11 +57,9 @@ int main() {
 	state.example = std::move(example);
 
 #ifdef __EMSCRIPTEN__
-	// Unsightly lambda expression syntax... Basically
-	// we want to pass in 'window' and 'state' as args
-	// into the appLoopBody function with emscripten's
-	// set_main function, but we're only allowed to do
-	// so using a void*. I used a tuple<win*,state*>*.
+	// Unsightly lambda expression syntax. This is the
+	// best way I can think of passing in arguments to
+	// appLoopBody while bottlenecked through a void*.
 	std::tuple userData { &window, &renderer, &state };
 	emscripten_set_main_loop_arg(
 		[](void* data) {
