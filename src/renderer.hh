@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <cmath>
 
 // Raw Data Types:
 struct RawPoint  { int16_t x, y; };
@@ -16,7 +17,7 @@ struct Element : std::variant<Stroke, Pattern, Eraser> {};
 struct Group   { /* ... */ };
 struct Sketch  {
 	std::vector<Element> elements;
-	std::vector<Group> groups
+	std::vector<Group> groups;
 };
 
 class Renderer {
