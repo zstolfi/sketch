@@ -21,53 +21,54 @@ struct Sketch  {
 	std::vector<Group> groups;
 };
 
+struct Col3 { uint8_t r, g, b; };
+
 class Renderer {
 	// Possibly an mdspan in the future.
 	std::span<uint32_t> pixels;
 	const unsigned W = 800;
 	const unsigned H = 600;
-	using RGB_Fn = uint32_t(uint8_t,uint8_t,uint8_t);
-	std::function<RGB_Fn> MapRGB;
+	std::function<uint32_t(Col3)> MapRGB;
+	std::function<Col3(uint32_t)> GetRGB;
 
 public:
 	Renderer(std::span<uint32_t> output,
 	         unsigned W, unsigned H,
-	         std::function<RGB_Fn> map)
-	: pixels{output}, W{W}, H{H}, MapRGB{map} {}
+	         std::function<uint32_t(Col3)> map,
+	         std::function<Col3(uint32_t)> get)
+	: pixels{output}, W{W}, H{H}
+	, MapRGB{map}, GetRGB{get} {}
 
 	void clear() {
 		for (std::size_t i=0; i<W*H; i++)
-			pixels[i] = MapRGB(255,255,255);
+			pixels[i] = MapRGB({255,255,255});
 	}
 
 	void drawLine(RawPoint a, RawPoint b) {
-		// auto [xMin, xMax] = std::minmax(a.x, b.x);
-		// auto [yMin, yMax] = std::minmax(a.y, b.y);
-		// unsigned x0=std::max<unsigned>(  0, xMin-2);
-		// unsigned y0=std::max<unsigned>(  0, yMin-2);
-		// unsigned x1=std::min<unsigned>(W-1, xMax+2);
-		// unsigned y1=std::min<unsigned>(H-1, yMax+2);
-		unsigned x0 = 0, x1 = W-1;
-		unsigned y0 = 0, y1 = H-1;
+		auto [xMin, xMax] = std::minmax(a.x, b.x);
+		auto [yMin, yMax] = std::minmax(a.y, b.y);
+		Real x0 = max(  0, xMin-2);
+		Real y0 = max(  0, yMin-2);
+		Real x1 = min(W-1, xMax+2);
+		Real y1 = min(H-1, yMax+2);
 
-		for (unsigned y=y0; y<=y1; y++)
-		for (unsigned x=x0; x<=x1; x++) {
-			float px = x - a.x + 0.5;
-			float py = y - a.y + 0.5;
-			float bx = b.x - a.x;
-			float by = b.y - a.y;
-			float c;
-			// Circle case
-			if (bx == 0 && by == 0)
-				c = 255*clamp(std::hypot(px, py)-1, 0, 1);
+		Vec2 av = {(Real)a.x, (Real)a.y};
+		Vec2 bv = {(Real)b.x, (Real)b.y};
 
-			float len = std::hypot(bx, by);
-			float h = (px*bx + py*by)/(bx*bx + by*by);
-			c = 255*clamp(hypot(px - h*bx, py - h*by)-1, 0, 1);
-			// set (darken)
+		for (Real y=y0; y<=y1; y+=1)
+		for (Real x=x0; x<=x1; x+=1) {
+			uint8_t c = 255*clamp(
+				SDFline({x+(Real)0.5, y+(Real)0.5}, av, bv) - 1,
+				0,
+				1
+			);
 			auto& pixel = pixels[y*W+x];
-			if ((pixel >> 8 & 0xFF) > c) // Temporary hack
-				pixel = MapRGB(c,c,c);
+			Col3 cOld = GetRGB(pixel);
+			pixel = MapRGB({
+				(cOld.r < c) ? cOld.r : c,
+				(cOld.g < c) ? cOld.g : c,
+				(cOld.b < c) ? cOld.b : c
+			});
 		}
 	}
 

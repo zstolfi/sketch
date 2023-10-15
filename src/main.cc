@@ -1,5 +1,5 @@
 /*
-	em++ main.cc -std=c++20 -sUSE_SDL=2 -o sketch.html
+	em++ main.cc -std=c++20 -sUSE_SDL=2 -o web/sketch.html
 */
 
 #include <emscripten.h>
@@ -43,15 +43,20 @@ int main() {
 	Window window {"Sketch Client", 800, 600};
 	AppState state {};
 	Renderer renderer {window.pixels, 800, 600,
-		[=](auto r, auto g, auto b) {
-			return SDL_MapRGB(window.format, r,g,b);
+		[=](Col3 c) -> uint32_t {
+			return SDL_MapRGB(window.format, c.r, c.g, c.b);
 		},
+		[=](uint32_t pixel) -> Col3 {
+			Col3 c;
+			SDL_GetRGB(pixel, window.format, &c.r, &c.g, &c.b);
+			return c;
+		}
 	};
 
 	RawSketch example ({
-		RawStroke ({{0,0}, {800,600}}),
-		RawStroke ({{800,0}, {0,600}}),
-		RawStroke ({{0,0}, {37,37}, {74,74}, {111,111}})
+		RawStroke ({{0,0}, {0,600}}),
+		RawStroke ({{4,0}, {4,600}}),
+		RawStroke ({{8,0}, {8,600}})//,
 	});
 
 	state.example = std::move(example);
