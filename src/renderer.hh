@@ -1,25 +1,8 @@
 #pragma once
 #include <functional>
 #include <algorithm>
+#include "types.hh"
 #include "math.hh"
-
-// Raw Data Types:
-struct RawPoint  { int16_t x, y; };
-struct RawStroke : std::vector<RawPoint>  {};
-struct RawSketch : std::vector<RawStroke> {};
-
-// Editor Data Types:
-struct Point   { int16_t x, y; float pressure; };
-struct Stroke  : std::vector<Point> { unsigned diameter; };
-struct Pattern { /* ... */ };
-struct Mask    { /* ... */ };
-struct Eraser  : Stroke {};
-struct Element : std::variant<Stroke, Pattern, Eraser> {};
-struct Group   { /* ... */ };
-struct Sketch  {
-	std::vector<Element> elements;
-	std::vector<Group> groups;
-};
 
 struct Col3 { uint8_t r, g, b; };
 
@@ -44,6 +27,7 @@ public:
 			pixels[i] = MapRGB({255,255,255});
 	}
 
+	// TODO: more efficient line draw function
 	void drawLine(RawPoint a, RawPoint b) {
 		auto [xMin, xMax] = std::minmax(a.x, b.x);
 		auto [yMin, yMax] = std::minmax(a.y, b.y);
@@ -54,11 +38,14 @@ public:
 
 		Vec2 av = {(Real)a.x, (Real)a.y};
 		Vec2 bv = {(Real)b.x, (Real)b.y};
+		Vec2 xy;
 
 		for (Real y=y0; y<=y1; y+=1)
 		for (Real x=x0; x<=x1; x+=1) {
+			xy.x = x + 0.5;
+			xy.y = y + 0.5;
 			uint8_t c = 255*clamp(
-				SDFline({x+(Real)0.5, y+(Real)0.5}, av, bv) - 1,
+				SDFline(xy, av, bv) - 1,
 				0,
 				1
 			);
