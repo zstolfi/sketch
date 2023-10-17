@@ -1,12 +1,14 @@
 /*
-	em++ main.cc -std=c++20 -sUSE_SDL=2 -o web/sketch.html
+	em++ main.cc -std=c++20 -sUSE_SDL=2 --embed-file tests -o ../web/sketch.html
 */
 
 #include <emscripten.h>
 #include <SDL2/SDL.h>
 #include <iostream>
+#include <fstream>
 #include "window.hh"
 #include "renderer.hh"
+#include "parser.hh"
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -39,10 +41,11 @@ void appLoopBody(Window& w, Renderer& r, AppState& s) {
 }
 
 int main() {
-	static // window gets destructed early if not set static.
+	static // Emscripten destructs this early if it's not set static.
 	Window window {"Sketch Client", 800, 600};
 	AppState state {};
-	Renderer renderer {window.pixels, 800, 600,
+	Renderer renderer {
+		window.pixels, window.width(), window.height(),
 		[=](Col3 c) -> uint32_t {
 			return SDL_MapRGB(window.format, c.r, c.g, c.b);
 		},
@@ -52,29 +55,28 @@ int main() {
 			return c;
 		}
 	};
+	Parser parser;
 
-	RawSketch example ({
-		RawStroke ({{0,0}, {0,600}}),
-		RawStroke ({{4,0}, {4,600}}),
-		RawStroke ({{8,0}, {8,600}})//,
-	});
+	std::ifstream input {"tests/example raw.sketch"};
+	if (!input)
+		std::cerr << "File not found!.\n";
+	else
+		state.example = parser.raw(input);
 
-	state.example = std::move(example);
-
-#ifdef __EMSCRIPTEN__
-	// Unsightly lambda expression syntax. This is the
-	// best way I can think of passing in arguments to
-	// appLoopBody while bottlenecked through a void*.
-	std::tuple userData { &window, &renderer, &state };
-	emscripten_set_main_loop_arg(
-		[](void* data) {
-			auto [w,r,s] = *(decltype(userData)*)data;
-			appLoopBody(*w,*r,*s);
-		},
-		&userData,
-		0, true
-	);
-#else
-	while (!state.quit) appLoopBody(window, state);
-#endif
+#	ifdef __EMSCRIPTEN__
+		// Unsightly lambda expression syntax. This is the
+		// best way I can think of passing in arguments to
+		// appLoopBody while bottlenecked through a void*.
+		std::tuple userData { &window, &renderer, &state };
+		emscripten_set_main_loop_arg(
+			[](void* data) {
+				auto [w,r,s] = *(decltype(userData)*)data;
+				appLoopBody(*w,*r,*s);
+			},
+			&userData,
+			0, true
+		);
+#	else
+		while (!state.quit) appLoopBody(window, state);
+#	endif
 }
