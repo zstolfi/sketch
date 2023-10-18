@@ -1,5 +1,5 @@
 /*
-	em++ main.cc -std=c++20 -sUSE_SDL=2 --embed-file ../web/input@/ -o ../web/output/sketch.html
+	em++ main.cc -std=c++20 -sUSE_SDL=2 -sEXPORTED_FUNCTIONS=_main,_jsSetPenPressure -sEXPORTED_RUNTIME_METHODS=cwrap --embed-file ../web/input@/ -o ../web/output/sketch.html
 */
 
 #include <emscripten.h>
@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include "window.hh"
+#include "external.hh"
 #include "renderer.hh"
 #include "parser.hh"
 
@@ -16,12 +17,14 @@ struct AppState {
 	bool quit = false;
 	
 	RawSketch example;
+	Point cursor;
+	bool pressed = false;
 };
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 void draw(Window& w, Renderer& r, const AppState& s) {
-	std::cout << "Rendering...\n";
+	std::cout << "Presure: " << s.cursor.pressure << "\n";
 	r.clear();
 	r.displayRaw(s.example);
 	w.updatePixels();
@@ -30,7 +33,32 @@ void draw(Window& w, Renderer& r, const AppState& s) {
 bool detectEvents(AppState& s) {
 	bool input = false;
 	for (SDL_Event ev; SDL_PollEvent(&ev); input=true)
-		;
+	switch (ev.type) {
+		case SDL_QUIT:
+			s.quit = true;
+			break;
+		case SDL_MOUSEMOTION:
+			s.cursor = {
+				(int16_t) ev.motion.x,
+				(int16_t) ev.motion.y,
+				jsPenPressure
+			};
+			break;
+		case SDL_MOUSEBUTTONDOWN:
+			s.pressed = true;
+			s.cursor.pressure = jsPenPressure;
+			break;
+		case SDL_MOUSEBUTTONUP:
+			s.pressed = false;
+			s.cursor.pressure = 0.0;
+			break;
+		case SDL_KEYDOWN:
+			switch (ev.key.keysym.sym) {
+				case SDLK_ESCAPE:
+					s.quit = true;
+					break;
+			} break;
+	}
 	return input;
 }
 
@@ -68,6 +96,9 @@ int main() {
 		state.example = parser.raw(input);
 
 #	ifdef __EMSCRIPTEN__
+		jsListenForPenPressure();
+		// jsListenForClipboard();
+
 		// Unsightly lambda expression syntax. This is the
 		// best way I can think of passing in arguments to
 		// appLoopBody while bottlenecked through a void*.
