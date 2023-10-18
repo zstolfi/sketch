@@ -1,5 +1,5 @@
 /*
-	em++ main.cc -std=c++20 -sUSE_SDL=2 --embed-file tests -o ../web/sketch.html
+	em++ main.cc -std=c++20 -sUSE_SDL=2 --embed-file ../web/input@/ -o ../web/output/sketch.html
 */
 
 #include <emscripten.h>
@@ -41,8 +41,12 @@ void appLoopBody(Window& w, Renderer& r, AppState& s) {
 }
 
 int main() {
+	std::ifstream config {"config.txt"};
+	std::string title = "Sketch Client";
+	if (config) std::getline(config, title);
+
 	static // Emscripten destructs this early if it's not set static.
-	Window window {"Sketch Client", 800, 600};
+	Window window {title.c_str(), 800, 600};
 	AppState state {};
 	Renderer renderer {
 		window.pixels, window.width(), window.height(),
@@ -57,7 +61,7 @@ int main() {
 	};
 	Parser parser;
 
-	std::ifstream input {"tests/example raw.sketch"};
+	std::ifstream input {"example raw.sketch"};
 	if (!input)
 		std::cerr << "File not found!.\n";
 	else
