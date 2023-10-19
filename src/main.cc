@@ -1,5 +1,5 @@
 /*
-	em++ main.cc -std=c++20 -sUSE_SDL=2 -sEXPORTED_FUNCTIONS=_main,_jsSetPenPressure -sEXPORTED_RUNTIME_METHODS=cwrap --embed-file ../web/input@/ -o ../web/output/sketch.html
+	em++ main.cc -std=c++20 -sUSE_SDL=2 -sEXPORTED_FUNCTIONS=_main,_jsSetPenPressure,_jsSetClipboard,_jsGetClipboard -sEXPORTED_RUNTIME_METHODS=cwrap --embed-file ../web/input@/ -o ../web/output/sketch.html
 */
 
 #include <emscripten.h>
@@ -24,7 +24,6 @@ struct AppState {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 void draw(Window& w, Renderer& r, const AppState& s) {
-	std::cout << "Presure: " << s.cursor.pressure << "\n";
 	r.clear();
 	r.displayRaw(s.example);
 	w.updatePixels();
@@ -41,12 +40,12 @@ bool detectEvents(AppState& s) {
 			s.cursor = {
 				(int16_t) ev.motion.x,
 				(int16_t) ev.motion.y,
-				jsPenPressure
+				JS::penPressure
 			};
 			break;
 		case SDL_MOUSEBUTTONDOWN:
 			s.pressed = true;
-			s.cursor.pressure = jsPenPressure;
+			s.cursor.pressure = JS::penPressure;
 			break;
 		case SDL_MOUSEBUTTONUP:
 			s.pressed = false;
@@ -56,6 +55,12 @@ bool detectEvents(AppState& s) {
 			switch (ev.key.keysym.sym) {
 				case SDLK_ESCAPE:
 					s.quit = true;
+					break;
+				case SDLK_c: // TODO: figure out modifier
+					JS::copy();
+					break;
+				case SDLK_v:
+					JS::paste();
 					break;
 			} break;
 	}
@@ -96,8 +101,8 @@ int main() {
 		state.example = parser.raw(input);
 
 #	ifdef __EMSCRIPTEN__
-		jsListenForPenPressure();
-		// jsListenForClipboard();
+		JS::listenForPenPressure();
+		// JS::listenForClipboard();
 
 		// Unsightly lambda expression syntax. This is the
 		// best way I can think of passing in arguments to
