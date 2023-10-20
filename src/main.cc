@@ -106,6 +106,10 @@ int main() {
 		std::cout << "parse failed :(\n";
 	}
 
+	auto tokenResult = SketchFormat::tokenize("ab c de f g;");
+	for (auto t : tokenResult)
+		std::cout << "\t\"" << t << "\"\n";
+
 #	ifdef __EMSCRIPTEN__
 		JS::listenForPenPressure();
 		// JS::listenForClipboard();

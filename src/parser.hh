@@ -67,17 +67,52 @@ namespace RawFormat {
 
 namespace SketchFormat {
 	using Tokens = std::vector<std::string_view>;
-	// I wouldn't call it a lexer, as it
-	// only handles whitespace/comments.
-	Tokens tokenize(std::string_view in) {
-		std::string_view line;
-		for (std::size_t next, i=0; i<in.size(); i = next+1) {
-		    next = in.find('\n', i);
-		    if (next == in.npos) next = in.size();
-		    line = in.substr(i, next - i);
+	// Removes whitespace/comments.
+	Tokens tokenize(std::string_view str) {
+		Tokens result;
 
-			if (line.empty() || line[0] == '%') continue;
+		enum { LineStart, Comment, Space, Token }
+			prevState = LineStart,
+			nextState;
+
+		std::size_t i=0, tokenStart=0;
+		for (; i<str.size(); i++, prevState = nextState) {
+			nextState = [](auto state, char c) {
+				if (state == LineStart)
+					if (c == '%' )       return Comment;
+					if (c == '\n')       return LineStart;
+					if (isWhitespace(c)) return Space;
+					/*                */ return Token;
+				if (state == Comment)
+					if (c == '\n') return LineStart;
+					/*          */ return Comment;
+				if (state == Space)
+					if (c == '\n')       return LineStart;
+					if (isWhitespace(c)) return Space;
+					/*                */ return Token;
+				if (state == Token)
+					if (c == '\n')       return LineStart;
+					if (isWhitespace(c)) return Space;
+					/*                */ return Token;
+			} (prevState, str[i]);
+
+			std::cout << "[" << i << "]\t"
+			          << (int)prevState << " -> "
+			          << (int)nextState << "\n";
+			if (prevState == nextState) continue;
+
+			if (nextState == Token) tokenStart = i;
+			if (prevState == Token) {
+				result.push_back(
+					str.substr(tokenStart, i - tokenStart)
+				);
+			}
 		}
-		return endReached;
+		if (prevState == Token) {
+			result.push_back(
+				str.substr(tokenStart, i - tokenStart)
+			);
+		}
+		return result;
 	}
 };
