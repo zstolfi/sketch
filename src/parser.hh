@@ -71,13 +71,14 @@ namespace SketchFormat {
 	Tokens tokenize(std::string_view str) {
 		Tokens result;
 
-		enum { LineStart, Comment, Space, Token }
+		enum { LineStart, Comment, Space, Token, End }
 			prevState = LineStart,
 			nextState;
 
-		std::size_t i=0, tokenStart=0;
-		for (; i<str.size(); i++, prevState = nextState) {
-			nextState = [](auto state, char c) {
+		std::size_t tokenStart=0;
+		for (std::size_t i=0; i<=str.size(); i++, prevState = nextState) {
+			nextState = i==str.size() ? End :
+			[](auto state, char c) {
 				if (state == LineStart)
 					if (c == '%' )       return Comment;
 					if (c == '\n')       return LineStart;
@@ -107,11 +108,6 @@ namespace SketchFormat {
 					str.substr(tokenStart, i - tokenStart)
 				);
 			}
-		}
-		if (prevState == Token) {
-			result.push_back(
-				str.substr(tokenStart, i - tokenStart)
-			);
 		}
 		return result;
 	}
