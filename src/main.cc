@@ -92,15 +92,15 @@ int main() {
 			return c;
 		}
 	};
-	RawFormat rf;
 
 	std::ifstream input {"example raw.sketch"};
 	if (!input) {
 		std::cerr << "File not found!.\n";
 	}
-	else if (rf.verify(input)) {
+	else if (RawFormat::verify(input)) {
+		input.clear();
 		input.seekg(0);
-		state.example = rf.parse(input);
+		state.example = RawFormat::parse(input);
 	}
 	else {
 		std::cout << "parse failed :(\n";

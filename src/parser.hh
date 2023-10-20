@@ -9,19 +9,13 @@
 
 namespace ranges = std::ranges;
 
-template <typename T>
-class FileFormat { protected: using DataType = T;
-public:
-	virtual bool verify(std::istream& is/*, ParseError e*/) = 0;
-	virtual DataType parse(std::istream& is) = 0;
-
+namespace /*anonymous*/ {
 	// Useful functions for parsing:
-protected:
-	static constexpr bool isWhitespace(char c) { return c==' ' || c=='\t' || c=='\n'; }
-	static constexpr bool isLowercase (char c) { return 'a' <= c&&c <= 'z'; }
-	static constexpr bool isUppercase (char c) { return 'A' <= c&&c <= 'Z'; }
-	static constexpr bool isBase10    (char c) { return '0' <= c&&c <= '9'; }
-	static constexpr bool isBase36    (char c) { return isBase10(c) || isLowercase(c) || isUppercase(c); }
+	constexpr bool isWhitespace(char c) { return c==' ' || c=='\t' || c=='\n'; }
+	constexpr bool isLowercase (char c) { return 'a' <= c&&c <= 'z'; }
+	constexpr bool isUppercase (char c) { return 'A' <= c&&c <= 'Z'; }
+	constexpr bool isBase10    (char c) { return '0' <= c&&c <= '9'; }
+	constexpr bool isBase36    (char c) { return isBase10(c) || isLowercase(c) || isUppercase(c); }
 
 	// This only needs to support at most 3 digits right now.
 	static constexpr int16_t base36(std::string_view str) {
@@ -40,9 +34,8 @@ protected:
 
 
 
-class RawFormat : FileFormat<RawSketch> {
-public:
-	bool verify(std::istream& is) final {
+namespace RawFormat {
+	bool verify(std::istream& is) {
 		enum { S0, X1, X2, Y1, Y2 } state = S0;
 		for (char c; is.get(c); )
 			if (isBase36(c))
@@ -58,7 +51,7 @@ public:
 		return state == S0 || state == Y2;
 	}
 
-	DataType parse(std::istream& is) final {
+	RawSketch parse(std::istream& is) {
 		RawSketch result {};
 		for (std::string line; is >> std::ws >> line; ) {
 			RawStroke stroke {};
