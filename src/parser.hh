@@ -32,8 +32,6 @@ namespace /*anonymous*/ {
 	}
 };
 
-
-
 namespace RawFormat {
 	bool verify(std::istream& is) {
 		enum { S0, X1, X2, Y1, Y2 } state = S0;
@@ -64,5 +62,22 @@ namespace RawFormat {
 			result.push_back(stroke);
 		}
 		return result;
+	}
+};
+
+namespace SketchFormat {
+	using Tokens = std::vector<std::string_view>;
+	// I wouldn't call it a lexer, as it
+	// only handles whitespace/comments.
+	Tokens tokenize(std::string_view in) {
+		std::string_view line;
+		for (std::size_t next, i=0; i<in.size(); i = next+1) {
+		    next = in.find('\n', i);
+		    if (next == in.npos) next = in.size();
+		    line = in.substr(i, next - i);
+
+			if (line.empty() || line[0] == '%') continue;
+		}
+		return endReached;
 	}
 };
