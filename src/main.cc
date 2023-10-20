@@ -92,13 +92,19 @@ int main() {
 			return c;
 		}
 	};
-	Parser parser;
+	RawFormat rf;
 
 	std::ifstream input {"example raw.sketch"};
-	if (!input)
+	if (!input) {
 		std::cerr << "File not found!.\n";
-	else
-		state.example = parser.raw(input);
+	}
+	else if (rf.verify(input)) {
+		input.seekg(0);
+		state.example = rf.parse(input);
+	}
+	else {
+		std::cout << "parse failed :(\n";
+	}
 
 #	ifdef __EMSCRIPTEN__
 		JS::listenForPenPressure();

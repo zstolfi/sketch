@@ -2,9 +2,9 @@
 #include <vector>
 #include <variant>
 
-// struct RawPoint  { int16_t x, y; }
-// struct RawStroke : std::vector<RawPoint>  {}
-// struct RawSketch : std::vector<RawStroke> {}
+struct RawPoint;
+struct RawStroke;
+struct RawSketch;
 
 // Editor Data Types:
 struct Point   { int16_t x, y; float pressure; };
