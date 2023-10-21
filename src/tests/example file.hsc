@@ -38,6 +38,10 @@ Data : [ zzkzzk'016zzk'016016'zzk016'zzkzzk ]
 Pencil : [ 0c902k0cc02i0ch02d0cg01k0c901a0ca01a0cl01d0d601c0df0170dg0170dm01s0ds0330dm0490d804q0cn04o0cp0410eg032 ],
 
 % String literals are in nest-able parens, postscript-style.
+()
+(string)
+(string with (nested) parens)
+( ()((()(()))())() )
 Marker : (This is a marker at the end of the file.);
 %	Erase : 
 %		...

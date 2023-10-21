@@ -80,40 +80,52 @@ namespace SketchFormat {
 
 		// Token includes types/numbers/base36.
 		// Op is any single character operator.
-		enum { LineStart, Comment, Space, Token,/* String,*/ Op, End }
-			prevState = LineStart,
-			nextState;
+		enum {
+			LineStart, Comment, Space, Token,
+			String, StringEnd, Op,
+			End
+		}
+		prevState = LineStart,
+		nextState;
 
 		std::size_t tokenStart=0;
+		int parenCount = 0;
 		for (std::size_t i=0; i<=str.size(); i++, prevState = nextState) {
 			nextState = i==str.size() ? End :
-			[](auto state, char c) {
-				switch (state) {
-				case LineStart:
-					if (c == '%')        return Comment;
-					if (isNewline(c))    return LineStart;
-					if (isWhitespace(c)) return Space;
-					/*                */ return Token;
-				case Comment:
-					if (isNewline(c))    return LineStart;
-					/*                */ return Comment;
-				case Space:
-				case Token:
-				case Op:
-					if (isNewline(c))    return LineStart;
-					if (isWhitespace(c)) return Space;
-					if (isOperator(c))   return Op;
-					/*                */ return Token;
-				default: return End;
+			[&](auto state, char c) {
+				if (state == LineStart && c == '%') return Comment;
+				if (state == Comment)
+					return isNewline(c) ? LineStart : Comment;
+				if (state == String) {
+					if (c == '(') ++parenCount;
+					if (c == ')' && --parenCount <= 0) return StringEnd;
+					return String;
 				}
+
+				if (isNewline(c))     return LineStart;
+				if (isWhitespace(c))  return Space;
+				if (isOperator(c))    return Op;
+				if (c == '(')         return String;
+				/*                 */ return Token;
 			} (prevState, str[i]);
 
 			if (prevState == Op) resultAdd(i-1, i);
-			if (prevState == nextState) continue;
+			if (prevState != nextState) {
+				if (nextState == Token) tokenStart = i;
+				if (prevState == Token) resultAdd(tokenStart, i);
 
-			if (nextState == Token) tokenStart = i;
-			if (prevState == Token) resultAdd(tokenStart, i);
+				if (nextState == String) tokenStart=i, parenCount=1;
+				if (nextState == StringEnd) resultAdd(tokenStart, i+1);
+
+				// The source file ends with an unterminated string
+				// literal. Which is probably because of unbalanced
+				// parentheses in the string. The tokenizer doesn't
+				// error because the validity can be checked later.
+				if (prevState == String && nextState == End)
+					resultAdd(tokenStart, i);
+			}
 		}
+
 		return result;
 	}
 };
