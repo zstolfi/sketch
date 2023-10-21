@@ -1,5 +1,5 @@
 /*
-	em++ main.cc -std=c++20 -sUSE_SDL=2 -sEXPORTED_FUNCTIONS=_main,_jsSetPenPressure,_jsSetClipboard,_jsGetClipboard -sEXPORTED_RUNTIME_METHODS=cwrap --embed-file ../web/input@/ -o ../web/output/sketch.html
+	em++ main.cc -std=c++23 -sUSE_SDL=2 -sEXPORTED_FUNCTIONS=_main,_jsSetPenPressure,_jsSetClipboard,_jsGetClipboard -sEXPORTED_RUNTIME_METHODS=cwrap --embed-file ../web/input@/ -o ../web/output/sketch.html
 */
 
 #include <emscripten.h>

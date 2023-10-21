@@ -37,6 +37,7 @@ Data : [ zzkzzk'016zzk'016016'zzk016'zzkzzk ]
 % Pencil is just a synonym for Data currently.
 Pencil : [ 0c902k0cc02i0ch02d0cg01k0c901a0ca01a0cl01d0d601c0df0170dg0170dm01s0ds0330dm0490d804q0cn04o0cp0410eg032 ],
 
-Marker : (End.);
+% String literals are in nest-able parens, postscript-style.
+Marker : (This is a marker at the end of the file.);
 %	Erase : 
 %		...

@@ -8,6 +8,7 @@
 #include "types.hh"
 
 namespace ranges = std::ranges;
+using namespace std::literals;
 
 namespace /*anonymous*/ {
 	// Useful functions for parsing:
@@ -68,11 +69,18 @@ namespace RawFormat {
 
 namespace SketchFormat {
 	using Tokens = std::vector<std::string_view>;
+	bool isOperator(char c) { return ":[],;"sv.contains(c); }
+
 	// Removes whitespace/comments.
 	Tokens tokenize(std::string_view str) {
 		Tokens result;
+		auto resultAdd = [&](std::size_t i0, std::size_t i1) {
+			result.push_back(str.substr(i0, i1-i0));
+		};
 
-		enum { LineStart, Comment, Space, Token, End }
+		// Token includes types/numbers/base36.
+		// Op is any single character operator.
+		enum { LineStart, Comment, Space, Token,/* String,*/ Op, End }
 			prevState = LineStart,
 			nextState;
 
@@ -90,24 +98,21 @@ namespace SketchFormat {
 					if (isNewline(c))    return LineStart;
 					/*                */ return Comment;
 				case Space:
-					if (isNewline(c))    return LineStart;
-					if (isWhitespace(c)) return Space;
-					/*                */ return Token;
 				case Token:
+				case Op:
 					if (isNewline(c))    return LineStart;
 					if (isWhitespace(c)) return Space;
+					if (isOperator(c))   return Op;
 					/*                */ return Token;
 				default: return End;
 				}
 			} (prevState, str[i]);
 
+			if (prevState == Op) resultAdd(i-1, i);
 			if (prevState == nextState) continue;
 
 			if (nextState == Token) tokenStart = i;
-			if (prevState == Token)
-				result.push_back(
-					str.substr(tokenStart, i - tokenStart)
-				);
+			if (prevState == Token) resultAdd(tokenStart, i);
 		}
 		return result;
 	}
