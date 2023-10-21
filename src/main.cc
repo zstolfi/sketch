@@ -75,7 +75,7 @@ void appLoopBody(Window& w, Renderer& r, AppState& s) {
 
 int main() {
 	std::ifstream config {"config.txt"};
-	std::string title = "Sketch Client";
+	std::string title = "[Offline] Sketch Client";
 	if (config) std::getline(config, title);
 
 	static // Emscripten destructs this early if it's not set static.
@@ -93,22 +93,17 @@ int main() {
 		}
 	};
 
-	std::ifstream input {"example raw.sketch"};
-	if (!input) {
+	// Gives a whole new meaning to 'if'stream, huh? :^)
+	if (std::ifstream input {"example file.hsc"}; !input) {
 		std::cerr << "File not found!.\n";
 	}
-	else if (RawFormat::verify(input)) {
-		input.clear();
-		input.seekg(0);
-		state.example = RawFormat::parse(input);
+	else  {
+		std::istreambuf_iterator<char> it {input}, end {};
+		std::string inString {it, end};
+		auto tokenResult = SketchFormat::tokenize(inString);
+		for (auto t : tokenResult)
+			std::cout << "\t\"" << t << "\"\n";
 	}
-	else {
-		std::cout << "parse failed :(\n";
-	}
-
-	auto tokenResult = SketchFormat::tokenize("ab c de f g;");
-	for (auto t : tokenResult)
-		std::cout << "\t\"" << t << "\"\n";
 
 #	ifdef __EMSCRIPTEN__
 		JS::listenForPenPressure();

@@ -11,7 +11,8 @@ namespace ranges = std::ranges;
 
 namespace /*anonymous*/ {
 	// Useful functions for parsing:
-	constexpr bool isWhitespace(char c) { return c==' ' || c=='\t' || c=='\n'; }
+	constexpr bool isWhitespace(char c) { return c==' ' || c=='\t' || c=='\n' || c=='\r'; }
+	constexpr bool isNewline   (char c) { return c=='\n' || c=='\r'; }
 	constexpr bool isLowercase (char c) { return 'a' <= c&&c <= 'z'; }
 	constexpr bool isUppercase (char c) { return 'A' <= c&&c <= 'Z'; }
 	constexpr bool isBase10    (char c) { return '0' <= c&&c <= '9'; }
@@ -79,35 +80,34 @@ namespace SketchFormat {
 		for (std::size_t i=0; i<=str.size(); i++, prevState = nextState) {
 			nextState = i==str.size() ? End :
 			[](auto state, char c) {
-				if (state == LineStart)
-					if (c == '%' )       return Comment;
-					if (c == '\n')       return LineStart;
+				switch (state) {
+				case LineStart:
+					if (c == '%')        return Comment;
+					if (isNewline(c))    return LineStart;
 					if (isWhitespace(c)) return Space;
 					/*                */ return Token;
-				if (state == Comment)
-					if (c == '\n') return LineStart;
-					/*          */ return Comment;
-				if (state == Space)
-					if (c == '\n')       return LineStart;
+				case Comment:
+					if (isNewline(c))    return LineStart;
+					/*                */ return Comment;
+				case Space:
+					if (isNewline(c))    return LineStart;
 					if (isWhitespace(c)) return Space;
 					/*                */ return Token;
-				if (state == Token)
-					if (c == '\n')       return LineStart;
+				case Token:
+					if (isNewline(c))    return LineStart;
 					if (isWhitespace(c)) return Space;
 					/*                */ return Token;
+				default: return End;
+				}
 			} (prevState, str[i]);
 
-			std::cout << "[" << i << "]\t"
-			          << (int)prevState << " -> "
-			          << (int)nextState << "\n";
 			if (prevState == nextState) continue;
 
 			if (nextState == Token) tokenStart = i;
-			if (prevState == Token) {
+			if (prevState == Token)
 				result.push_back(
 					str.substr(tokenStart, i - tokenStart)
 				);
-			}
 		}
 		return result;
 	}
