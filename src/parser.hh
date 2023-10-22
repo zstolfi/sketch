@@ -1,12 +1,13 @@
 #pragma once
 #include <iostream>
+#include <algorithm>
 #include <string>
 #include <string_view>
-#include <algorithm>
-#include <cstdint>
+#include <vector>
+#include <span>
+#include <variant>
 #include <cassert>
 #include "types.hh"
-
 namespace ranges = std::ranges;
 using namespace std::literals;
 
@@ -32,6 +33,9 @@ namespace /*anonymous*/ {
 		}
 		return result;
 	}
+
+	template <typename... Ts>
+	struct Overloaded : Ts... { using Ts::operator()...; };
 };
 
 namespace RawFormat {
@@ -73,7 +77,7 @@ namespace SketchFormat {
 	bool isOperator(char c) { return ":[],;"sv.contains(c); }
 
 	// Removes whitespace/comments.
-	Tokens tokenize(std::string_view str) {
+	auto tokenize(std::string_view str) {
 		Tokens result;
 		auto resultAdd = [&](std::size_t i0, std::size_t i1) {
 			result.push_back(str.substr(i0, i1-i0));
@@ -130,21 +134,76 @@ namespace SketchFormat {
 
 	enum ValueType { tBase36, tNumber, tString };
 
+	struct tNone      { };
 	struct tSingle    { ValueType type; };
-	struct tUnbounded { ValueType type; std::size_t mult=1;};
 	struct tBounded   { ValueType type; std::size_t n; };
+	struct tUnbounded { ValueType type; std::size_t mult=1;};
 
-	using V = std::variant<tSingle, tUnbounded, tBounded>;
+	using V = std::variant<tNone, tSingle, tUnbounded, tBounded>;
 
 	constexpr auto Elements = std::array {
 	    std::pair { "Data"sv  , V{ tUnbounded{tBase36   } }},
-	    std::pair { "Pencil"sv, V{ tUnbounded{tBase36,  } }},
-	    std::pair { "Brush"sv , V{ tUnbounded{tBase36  2} }},
+	    std::pair { "Pencil"sv, V{ tUnbounded{tBase36   } }},
+	    std::pair { "Brush"sv , V{ tUnbounded{tBase36, 2} }},
 	    std::pair { "Affine"sv, V{ tBounded  {tNumber, 9} }},
 	    std::pair { "Marker"sv, V{ tSingle   {tString   } }},
 	};
 
+	auto parseElement(const Tokens& tkn, std::size_t& i) {
+		std::optional<std::pair<
+			Token, /* type name */
+			std::span<Token> /* elements */
+		>> result;
+
+		if (i+1 > tkn.size()) return {};
+		Token typeName = tkn[i++];
+
+		auto matchFn = [&](auto t) { t.first == typeName; };
+		auto match = ranges::find_if(Elements, matchFn)
+		if (match == Elements.end()) return {};
+
+		// if (std::holds_alternative<tNone>(match->second)) ...
+
+		using Ret_t = decltype(result);
+		result = std::visit(Overloaded {
+			[&](tNone v) -> Ret_t {
+				return {typeName, {}};
+			},
+			[&](tSingle v) -> Ret_t {
+				if (i+2 > tkn.size()) return {};
+				if (tkn[i++] != ":") return {};
+				return {typeName, std::span<Token> {&tkn[i++], 1}};
+			},
+			[&](tBounded v) -> Ret_t {
+				if (i+2 > tkn.size()) return {};
+				if (tkn[i++] != ":") return {};
+				if (tkn[i++] != "[") return {};
+				std::size_t count = 0;
+				while (i < tkn.size() && tkn[i] != "]")
+					i++, count++;
+				if (i++ == tkn.size()) return {};
+				if (count != v.n) return {};
+				return {typeName, {&tkn[i-1-count], count}};
+			},
+			[&](tUnbounded v) -> Ret_t {
+				if (i+2 > tkn.size()) return {};
+				if (tkn[i++] != ":") return {};
+				if (tkn[i++] != "[") return {};
+				std::size_t count = 0;
+				while (i < tkn.size() && tkn[i] != "]")
+					i++, count++;
+				if (i++ == tkn.size()) return {};
+				return {typeName, {&tkn[i-1-count], count}}
+			}
+		}, match->second);
+
+		return result;
+	}
+
 	Sketch parse(const Tokens& tkn) {
+		for (std::size_t i=0; i<tkn.size(); i++) {
+
+		}
 		// loop
 		//     elemsList;
 		//     while token != "," or ";"

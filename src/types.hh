@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <variant>
+#include <cstdint>
 
 struct RawPoint;
 struct RawStroke;
