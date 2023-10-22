@@ -68,7 +68,8 @@ namespace RawFormat {
 };
 
 namespace SketchFormat {
-	using Tokens = std::vector<std::string_view>;
+	using Token  = std::string_view;
+	using Tokens = std::vector<Token>;
 	bool isOperator(char c) { return ":[],;"sv.contains(c); }
 
 	// Removes whitespace/comments.
@@ -81,9 +82,8 @@ namespace SketchFormat {
 		// Token includes types/numbers/base36.
 		// Op is any single character operator.
 		enum {
-			LineStart, Comment, Space, Token,
-			String, StringEnd, Op,
-			End
+			LineStart, Comment, Space, End,
+			Token, String, StringEnd, Op
 		}
 		prevState = LineStart,
 		nextState;
@@ -125,7 +125,35 @@ namespace SketchFormat {
 					resultAdd(tokenStart, i);
 			}
 		}
-
 		return result;
+	}
+
+	enum ValueType { tBase36, tNumber, tString };
+
+	struct tSingle    { ValueType type; };
+	struct tUnbounded { ValueType type; std::size_t mult=1;};
+	struct tBounded   { ValueType type; std::size_t n; };
+
+	using V = std::variant<tSingle, tUnbounded, tBounded>;
+
+	constexpr auto Elements = std::array {
+	    std::pair { "Data"sv  , V{ tUnbounded{tBase36   } }},
+	    std::pair { "Pencil"sv, V{ tUnbounded{tBase36,  } }},
+	    std::pair { "Brush"sv , V{ tUnbounded{tBase36  2} }},
+	    std::pair { "Affine"sv, V{ tBounded  {tNumber, 9} }},
+	    std::pair { "Marker"sv, V{ tSingle   {tString   } }},
+	};
+
+	Sketch parse(const Tokens& tkn) {
+		// loop
+		//     elemsList;
+		//     while token != "," or ";"
+		//         elemsList <- parseElement()
+		//     end
+		//     
+		//     (operate on element list)
+		// 
+		//     if token == ";" break
+		// end
 	}
 };
