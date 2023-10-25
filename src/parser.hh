@@ -77,7 +77,7 @@ namespace SketchFormat {
 	bool isOperator(char c) { return ":[],;"sv.contains(c); }
 
 	// Removes whitespace/comments.
-	auto tokenize(std::string_view str) {
+	Tokens tokenize(std::string_view str) {
 		Tokens result;
 		auto resultAdd = [&](std::size_t i0, std::size_t i1) {
 			result.push_back(str.substr(i0, i1-i0));
@@ -149,30 +149,32 @@ namespace SketchFormat {
 	    std::pair { "Marker"sv, V{ tSingle   {tString   } }},
 	};
 
-	auto parseElement(const Tokens& tkn, std::size_t& i) {
-		std::optional<std::pair<
-			Token, /* type name */
-			std::span<Token> /* elements */
-		>> result;
+	struct ElementData {
+		Token type;
+		std::span<const Token> members;
+	};
 
+	auto parseElement(const Tokens& tkn, std::size_t& i)
+	-> std::optional<ElementData> {
 		if (i+1 > tkn.size()) return {};
 		Token typeName = tkn[i++];
 
-		auto matchFn = [&](auto t) { t.first == typeName; };
-		auto match = ranges::find_if(Elements, matchFn)
+		auto match = ranges::find_if(Elements,
+			[&](auto t) { return t.first == typeName; }
+		);
 		if (match == Elements.end()) return {};
 
 		// if (std::holds_alternative<tNone>(match->second)) ...
 
-		using Ret_t = decltype(result);
-		result = std::visit(Overloaded {
+		using Ret_t = std::optional<ElementData>;
+		return std::visit(Overloaded {
 			[&](tNone v) -> Ret_t {
-				return {typeName, {}};
+				return ElementData {typeName, {}};
 			},
 			[&](tSingle v) -> Ret_t {
 				if (i+2 > tkn.size()) return {};
 				if (tkn[i++] != ":") return {};
-				return {typeName, std::span<Token> {&tkn[i++], 1}};
+				return ElementData {typeName, {&tkn[i++], 1}};
 			},
 			[&](tBounded v) -> Ret_t {
 				if (i+2 > tkn.size()) return {};
@@ -183,7 +185,7 @@ namespace SketchFormat {
 					i++, count++;
 				if (i++ == tkn.size()) return {};
 				if (count != v.n) return {};
-				return {typeName, {&tkn[i-1-count], count}};
+				return ElementData {typeName, {&tkn[i-1-count], count}};
 			},
 			[&](tUnbounded v) -> Ret_t {
 				if (i+2 > tkn.size()) return {};
@@ -193,11 +195,9 @@ namespace SketchFormat {
 				while (i < tkn.size() && tkn[i] != "]")
 					i++, count++;
 				if (i++ == tkn.size()) return {};
-				return {typeName, {&tkn[i-1-count], count}}
+				return ElementData {typeName, {&tkn[i-1-count], count}};
 			}
 		}, match->second);
-
-		return result;
 	}
 
 	Sketch parse(const Tokens& tkn) {
