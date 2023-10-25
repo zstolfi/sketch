@@ -100,9 +100,14 @@ int main() {
 	else  {
 		std::istreambuf_iterator<char> it {input}, end {};
 		std::string inString {it, end};
-		auto tokenResult = SketchFormat::tokenize(inString);
-		for (auto t : tokenResult)
+		auto tokens = SketchFormat::tokenize(inString);
+		std::cout << "\n#### TOKENS ####\n";
+		for (auto t : tokens)
 			std::cout << "\t\"" << t << "\"\n";
+
+		std::cout << "\n#### ELEMENTS ####\n";
+		SketchFormat::parse(tokens);
+		std::cout << "\n#### END ####\n";
 	}
 
 #	ifdef __EMSCRIPTEN__

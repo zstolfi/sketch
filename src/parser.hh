@@ -164,8 +164,6 @@ namespace SketchFormat {
 		);
 		if (match == Elements.end()) return {};
 
-		// if (std::holds_alternative<tNone>(match->second)) ...
-
 		using Ret_t = std::optional<ElementData>;
 		return std::visit(Overloaded {
 			[&](tNone v) -> Ret_t {
@@ -200,19 +198,27 @@ namespace SketchFormat {
 		}, match->second);
 	}
 
-	Sketch parse(const Tokens& tkn) {
-		for (std::size_t i=0; i<tkn.size(); i++) {
+	auto parse(const Tokens& tkn)
+	-> std::optional<Sketch> {
+		if (!tkn.empty() && tkn[0] == ";") return Sketch {};
 
+		for (std::size_t i=0; i<tkn.size(); i++) {
+			std::vector<ElementData> elemsList {};
+			while (i<tkn.size() && tkn[i] != "," && tkn[i] != ";") {
+				if (auto e = parseElement(tkn, i))
+					elemsList.push_back(*e);
+				else
+					return {};
+			}
+
+			// All 'statements' must contain > 0 elements.
+			if (elemsList.empty()) return {};
+
+			for (ElementData e : elemsList)
+				std::cout << e.type << "\n";
+
+			if (i<tkn.size() && tkn[i] == ";") break;
 		}
-		// loop
-		//     elemsList;
-		//     while token != "," or ";"
-		//         elemsList <- parseElement()
-		//     end
-		//     
-		//     (operate on element list)
-		// 
-		//     if token == ";" break
-		// end
+		return Sketch {}; // Dummy return value
 	}
 };
