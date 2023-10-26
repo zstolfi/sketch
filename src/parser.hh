@@ -8,21 +8,27 @@
 #include <variant>
 #include <cassert>
 #include "types.hh"
+#include "math.hh"
 namespace ranges = std::ranges;
 using namespace std::literals;
 
-namespace /*anonymous*/ {
-	// Useful functions for parsing:
-	constexpr bool isWhitespace(char c) { return c==' ' || c=='\t' || c=='\n' || c=='\r'; }
-	constexpr bool isNewline   (char c) { return c=='\n' || c=='\r'; }
-	constexpr bool isLowercase (char c) { return 'a' <= c&&c <= 'z'; }
-	constexpr bool isUppercase (char c) { return 'A' <= c&&c <= 'Z'; }
-	constexpr bool isBase10    (char c) { return '0' <= c&&c <= '9'; }
-	constexpr bool isBase36    (char c) { return isBase10(c) || isLowercase(c) || isUppercase(c); }
+class ParserBase {
+protected: // Useful functions for parsing:
+	static constexpr bool isWhitespace(char c) { return isAny(c,' ','\t','\n','\r'); }
+	static constexpr bool isNewline   (char c) { return isAny(c,'\n','\r'); }
+	static constexpr bool isLowercase (char c) { return 'a' <= c&&c <= 'z'; }
+	static constexpr bool isUppercase (char c) { return 'A' <= c&&c <= 'Z'; }
+	static constexpr bool isBase10    (char c) { return '0' <= c&&c <= '9'; }
+	static constexpr bool isBase36    (char c) { return isBase10(c) || isLowercase(c) || isUppercase(c); }
 
-	// This only needs to support at most 3 digits right now.
-	static constexpr int16_t base36(std::string_view str) {
-		int16_t result = 0;
+	template <std::size_t N, typename T>
+	requires (std::same_as<T,signed> || std::same_as<T,unsigned>)
+	constexpr T base36(std::string_view str) {
+		static_assert(pow(36,N) <= pow(2,8*sizeof(T)));
+		assert(str.size() <= N);
+
+		constexpr unsigned exp = pow(36u, N);
+		T result = 0;
 		for (char c : str) {
 			assert(isBase36(c));
 			result = 36*result + (
@@ -31,15 +37,31 @@ namespace /*anonymous*/ {
 				: /*isUppercase(c)*/ c-'A'+10
 			);
 		}
+		if constexpr (std::is_same_v<T,signed>)
+			if (result >= exp/2) result -= exp;
 		return result;
 	}
 
 	template <typename... Ts>
 	struct Overloaded : Ts... { using Ts::operator()...; };
+
+	template <typename T, typename... Ts>
+	static constexpr bool isAny(T x, Ts... args) {
+		auto compare = [](T x, auto arg) {
+			// Specialization for looking up chars in a string:
+			if constexpr (std::is_convertible_v<decltype(arg), std::string_view>)
+				return std::string_view{arg}.contains(x);
+			else
+				return x == arg;
+		};
+
+		return (compare(x,args) || ... );
+	}
 };
 
-namespace RawFormat {
-	bool verify(std::istream& is) {
+class RawFormat : public ParserBase {
+public:
+	static bool verify(std::istream& is) {
 		enum { S0, X1, X2, Y1, Y2 } state = S0;
 		for (char c; is.get(c); )
 			if (isBase36(c))
@@ -55,7 +77,7 @@ namespace RawFormat {
 		return state == S0 || state == Y2;
 	}
 
-	RawSketch parse(std::istream& is) {
+	static RawSketch parse(std::istream& is) {
 		RawSketch result {};
 		for (std::string line; is >> std::ws >> line; ) {
 			RawStroke stroke {};
@@ -71,13 +93,13 @@ namespace RawFormat {
 	}
 };
 
-namespace SketchFormat {
+class SketchFormat : public ParserBase {
 	using Token  = std::string_view;
 	using Tokens = std::vector<Token>;
-	bool isOperator(char c) { return ":[],;"sv.contains(c); }
 
+public:
 	// Removes whitespace/comments.
-	Tokens tokenize(std::string_view str) {
+	static Tokens tokenize(std::string_view str) {
 		Tokens result;
 		auto resultAdd = [&](std::size_t i0, std::size_t i1) {
 			result.push_back(str.substr(i0, i1-i0));
@@ -108,12 +130,16 @@ namespace SketchFormat {
 
 				if (isNewline(c))     return LineStart;
 				if (isWhitespace(c))  return Space;
-				if (isOperator(c))    return Op;
+				if (isAny(c,":[],;")) return Op;
 				if (c == '(')         return String;
 				/*                 */ return Token;
 			} (prevState, str[i]);
 
-			if (prevState == Op) resultAdd(i-1, i);
+			if (prevState == Op) {
+				resultAdd(i-1, i);
+				if (str[i] == ';') return result;
+			}
+
 			if (prevState != nextState) {
 				if (nextState == Token) tokenStart = i;
 				if (prevState == Token) resultAdd(tokenStart, i);
@@ -132,6 +158,7 @@ namespace SketchFormat {
 		return result;
 	}
 
+private:
 	enum ValueType { tBase36, tNumber, tString };
 
 	struct tNone      { };
@@ -141,12 +168,14 @@ namespace SketchFormat {
 
 	using V = std::variant<tNone, tSingle, tUnbounded, tBounded>;
 
-	constexpr auto Elements = std::array {
-	    std::pair { "Data"sv  , V{ tUnbounded{tBase36   } }},
-	    std::pair { "Pencil"sv, V{ tUnbounded{tBase36   } }},
-	    std::pair { "Brush"sv , V{ tUnbounded{tBase36, 2} }},
-	    std::pair { "Affine"sv, V{ tBounded  {tNumber, 9} }},
-	    std::pair { "Marker"sv, V{ tSingle   {tString   } }},
+	static constexpr auto Elements = std::array {
+		// Compiler weirdly complains when the ", 1" is removed.
+		std::pair { "Data"sv  , V{ tUnbounded{tBase36, 1} }},
+		std::pair { "Pencil"sv, V{ tUnbounded{tBase36, 1} }},
+		std::pair { "Brush"sv , V{ tUnbounded{tBase36, 2} }},
+		std::pair { "Affine"sv, V{ tBounded  {tNumber, 9} }},
+		std::pair { "Marker"sv, V{ tSingle   {tString   } }},
+		/* TODO: Mask */
 	};
 
 	struct ElementData {
@@ -154,7 +183,7 @@ namespace SketchFormat {
 		std::span<const Token> members;
 	};
 
-	auto parseElement(const Tokens& tkn, std::size_t& i)
+	static auto parseElement(const Tokens& tkn, std::size_t& i)
 	-> std::optional<ElementData> {
 		if (i+1 > tkn.size()) return {};
 		Token typeName = tkn[i++];
@@ -198,13 +227,15 @@ namespace SketchFormat {
 		}, match->second);
 	}
 
-	auto parse(const Tokens& tkn)
+public:
+	static auto parse(const Tokens& tkn)
 	-> std::optional<Sketch> {
-		if (!tkn.empty() && tkn[0] == ";") return Sketch {};
+		if (tkn.empty()) return {};
+		if (tkn[0] == ";") return Sketch {};
 
 		for (std::size_t i=0; i<tkn.size(); i++) {
 			std::vector<ElementData> elemsList {};
-			while (i<tkn.size() && tkn[i] != "," && tkn[i] != ";") {
+			while (i<tkn.size() && !isAny(tkn[i], ",", ";")) {
 				if (auto e = parseElement(tkn, i))
 					elemsList.push_back(*e);
 				else
@@ -214,8 +245,17 @@ namespace SketchFormat {
 			// All 'statements' must contain > 0 elements.
 			if (elemsList.empty()) return {};
 
-			for (ElementData e : elemsList)
-				std::cout << e.type << "\n";
+			Element timelineElem {};
+			if (isAny(elemsList[0].type, "Data", "Pencil")) {
+				for (std::size_t j=0; j<elemsList[0].members.size(); j++) {
+					Stroke stroke {3, {}};
+					for (std::size_t k=0; k<elemList[0].members[j].size(); j++) {
+						stroke.points.push_back(Point {});
+						/* ... */
+					}
+				}
+				timelineElem = stroke;
+			}
 
 			if (i<tkn.size() && tkn[i] == ";") break;
 		}

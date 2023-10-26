@@ -22,6 +22,13 @@ Real clamp(Real x, Real a, Real b) {
 	return max(a, min(b, x));
 }
 
+template <typename T>
+constexpr T pow(T x, std::size_t y) {
+	T result {1};
+	while (y--) result *= x;
+	return result;
+}
+
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 Real dot (Vec2 a, Vec2 b) { return a.x*b.x + a.y*b.y; }
