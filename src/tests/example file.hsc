@@ -40,7 +40,7 @@ Brush : [ 0a 06m01g'k0'06m01r'l5'06l038'k8'06g04g'e0 0a 06m035'a0'06v033'a0'07d0
 
 % Transformations are allowed to be applied to elements.
 % Here a square is translated and rotated by 30° clockwise.
-Data : [ zzkzzk'016zzk'016016'zzk016'zzkzzk ]
+Data : [ zzkzzk'00gzzk'00g00g'zzk00g'zzkzzk ]
 	Affine : [
 		+0.866  -0.500  391
 		+0.500  +0.000  104

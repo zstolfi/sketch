@@ -256,16 +256,14 @@ public:
 					std::string digits {};
 					for (char c : strokeData) {
 						if (c == '\'') continue;
-						if (digits.size() < 6)
-							digits.push_back(c);
-						else {
-							stroke.points.push_back(Point {
-								.x = base36<3,int16_t>(digits.substr(0, 3)),
-								.y = base36<3,int16_t>(digits.substr(3, 3)),
-								.pressure = 1.0
-							});
-							digits.clear();
-						}
+						digits.push_back(c);
+						if (digits.size() < 6) continue;
+						stroke.points.push_back(Point {
+							.x = base36<3,int16_t>(digits.substr(0, 3)),
+							.y = base36<3,int16_t>(digits.substr(3, 3)),
+							.pressure = 1.0
+						});
+						digits.clear();
 					}
 					assert(digits.empty());
 					timelineElems.push_back(stroke);
@@ -279,18 +277,16 @@ public:
 					std::string digits {};
 					for (char c : strokeData) {
 						if (c == '\'') continue;
-						if (digits.size() < 8)
-							digits.push_back(c);
-						else {
-							stroke.points.push_back(Point {
-								.x = base36<3,int16_t>(digits.substr(0,3)),
-								.y = base36<3,int16_t>(digits.substr(3,3)),
-								.pressure =
-									base36<2,unsigned>(digits.substr(6,2))
-									/ (float)(36*36-1)
-							});
-							digits.clear();
-						}
+						digits.push_back(c);
+						if (digits.size() < 8) continue;
+						stroke.points.push_back(Point {
+							.x = base36<3,int16_t>(digits.substr(0,3)),
+							.y = base36<3,int16_t>(digits.substr(3,3)),
+							.pressure =
+								base36<2,unsigned>(digits.substr(6,2))
+								/ (float)(36*36-1)
+						});
+						digits.clear();
 					}
 					assert(digits.empty());
 					timelineElems.push_back(stroke);

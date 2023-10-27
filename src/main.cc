@@ -106,7 +106,19 @@ int main() {
 			std::cout << "\t\"" << t << "\"\n";
 
 		std::cout << "\n#### ELEMENTS ####\n";
-		SketchFormat::parse(tokens);
+		if (auto sketch = SketchFormat::parse(tokens)) {
+			for (Element e : sketch->elements) {
+				if (!std::holds_alternative<Stroke>(e)) continue;
+				Stroke& s = std::get<Stroke>(e);
+				std::cout << "width: " << s.diameter << "\n";
+				std::cout << "points:\n";
+				for (Point p : s.points)
+					std::cout << "\t(" << p.x
+					          << ", "  << p.y
+					          << ", "  << p.pressure << ")";
+				std::cout << "\n\n";
+			}
+		}
 		std::cout << "\n#### END ####\n";
 	}
 
