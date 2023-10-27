@@ -1,16 +1,19 @@
 #pragma once
 #include <iostream>
 #include <algorithm>
+#include <ranges>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <span>
 #include <variant>
+#include <concepts>
 #include <cassert>
 #include "types.hh"
 #include "math.hh"
 namespace ranges = std::ranges;
-using namespace std::literals;
+namespace views  = std::views;
+using namespace    std::literals;
 
 class ParserBase {
 protected: // Useful functions for parsing:
@@ -21,10 +24,10 @@ protected: // Useful functions for parsing:
 	static constexpr bool isBase10    (char c) { return '0' <= c&&c <= '9'; }
 	static constexpr bool isBase36    (char c) { return isBase10(c) || isLowercase(c) || isUppercase(c); }
 
-	template <std::size_t N, typename T>
-	requires (std::same_as<T,signed> || std::same_as<T,unsigned>)
-	constexpr T base36(std::string_view str) {
-		static_assert(pow(36,N) <= pow(2,8*sizeof(T)));
+	template <std::size_t N, std::integral T=signed>
+	static constexpr T base36(std::string_view str) {
+		// Check 36^N <= 2^(Bits in T)
+		static_assert(N*Log2_36 <= 8*sizeof(T));
 		assert(str.size() <= N);
 
 		constexpr unsigned exp = pow(36u, N);
@@ -37,7 +40,7 @@ protected: // Useful functions for parsing:
 				: /*isUppercase(c)*/ c-'A'+10
 			);
 		}
-		if constexpr (std::is_same_v<T,signed>)
+		if constexpr (std::is_signed_v<T>)
 			if (result >= exp/2) result -= exp;
 		return result;
 	}
@@ -83,11 +86,11 @@ public:
 			RawStroke stroke {};
 			for (std::size_t i=0; i<line.size(); i+=4) {
 				RawPoint point {};
-				point.x = base36(line.substr(i+0, 2));
-				point.y = base36(line.substr(i+2, 2));
-				stroke.push_back(point);
+				point.x = base36<3,int16_t>(line.substr(i+0, 2));
+				point.y = base36<3,int16_t>(line.substr(i+2, 2));
+				stroke.points.push_back(point);
 			}
-			result.push_back(stroke);
+			result.strokes.push_back(stroke);
 		}
 		return result;
 	}
@@ -233,6 +236,7 @@ public:
 		if (tkn.empty()) return {};
 		if (tkn[0] == ";") return Sketch {};
 
+		Sketch result {};
 		for (std::size_t i=0; i<tkn.size(); i++) {
 			std::vector<ElementData> elemsList {};
 			while (i<tkn.size() && !isAny(tkn[i], ",", ";")) {
@@ -245,20 +249,57 @@ public:
 			// All 'statements' must contain > 0 elements.
 			if (elemsList.empty()) return {};
 
-			Element timelineElem {};
+			std::vector<Element> timelineElems {};
 			if (isAny(elemsList[0].type, "Data", "Pencil")) {
-				for (std::size_t j=0; j<elemsList[0].members.size(); j++) {
+				for (const Token strokeData : elemsList[0].members) {
 					Stroke stroke {3, {}};
-					for (std::size_t k=0; k<elemList[0].members[j].size(); j++) {
-						stroke.points.push_back(Point {});
-						/* ... */
+					std::string digits {};
+					for (char c : strokeData) {
+						if (c == '\'') continue;
+						if (digits.size() < 6)
+							digits.push_back(c);
+						else {
+							stroke.points.push_back(Point {
+								.x = base36<3,int16_t>(digits.substr(0, 3)),
+								.y = base36<3,int16_t>(digits.substr(3, 3)),
+								.pressure = 1.0
+							});
+							digits.clear();
+						}
 					}
+					assert(digits.empty());
+					timelineElems.push_back(stroke);
 				}
-				timelineElem = stroke;
 			}
+			else if (elemsList[0].type == "Brush") {
+				for (const auto [diameterData, strokeData]
+				:    elemsList[0].members | views::chunk(2)) {
+					Stroke stroke {base36<2,unsigned>(diameterData), {}};
+					std::string digits {};
+					for (char c : strokeData) {
+						if (c == '\'') continue;
+						if (digits.size() < 8)
+							digits.push_back(c);
+						else {
+							stroke.points.push_back(Point {
+								.x = base36<3,int16_t>(digits.substr(0,3)),
+								.y = base36<3,int16_t>(digits.substr(3,3)),
+								.pressure =
+									base36<2,unsigned>(digits.substr(6,2))
+									/ (float)(36*36-1)
+							});
+							digits.clear();
+						}
+					}
+					assert(digits.empty());
+					timelineElems.push_back(stroke);
+				}
+			}
+
+			result.elements.append_range(timelineElems);
 
 			if (i<tkn.size() && tkn[i] == ";") break;
 		}
-		return Sketch {}; // Dummy return value
+		return result;
 	}
 };

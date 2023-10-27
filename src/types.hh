@@ -13,7 +13,7 @@ struct Stroke  { unsigned diameter; std::vector<Point> points; };
 struct Pattern { /* ... */ };
 struct Mask    { /* ... */ };
 struct Eraser  { Mask m; };
-using  Element = std::variant<Stroke, Pattern, Eraser>;
+using  Element = std::variant<Stroke, Pattern, Eraser/*, Marker*/>;
 struct Group   { /* ... */ };
 struct Sketch  {
 	std::vector<Element> elements;
@@ -35,9 +35,9 @@ struct RawStroke {
 
 	operator Stroke() const {
 		Stroke s {};
-		s.reserve(points.size());
+		s.points.reserve(points.size());
 		for (RawPoint p : points)
-			s.push_back(static_cast<Point>(p));
+			s.points.push_back(static_cast<Point>(p));
 		s.diameter = 3;
 		return s;
 	}

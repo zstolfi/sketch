@@ -60,10 +60,11 @@ public:
 	}
 
 	void displayRaw(const RawSketch& sketch) {
-		for (RawStroke s : sketch) {
-			if (s.size() == 1) { drawLine(s[0], s[0]); continue; }
-			for (std::size_t i=1; i<s.size(); i++) {
-				drawLine(s[i-1], s[i]);
+		for (RawStroke s : sketch.strokes) {
+			auto& p = s.points;
+			if (p.size() == 1) { drawLine(p[0], p[0]); continue; }
+			for (std::size_t i=1; i<p.size(); i++) {
+				drawLine(p[i-1], p[i]);
 			}
 		}
 	}

@@ -29,6 +29,8 @@ constexpr T pow(T x, std::size_t y) {
 	return result;
 }
 
+constexpr auto Log2_36 = 5.1699;
+
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 Real dot (Vec2 a, Vec2 b) { return a.x*b.x + a.y*b.y; }
