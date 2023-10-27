@@ -272,8 +272,9 @@ public:
 				}
 			}
 			else if (elemsList[0].type == "Brush") {
-				for (const auto [diameterData, strokeData]
-				:    elemsList[0].members | views::chunk(2)) {
+				for (std::size_t j=0; j<elemsList[0].members.size(); j+=2) {
+					const Token diameterData = elemsList[0].members[j+0];
+					const Token strokeData   = elemsList[0].members[j+1];
 					Stroke stroke {base36<2,unsigned>(diameterData), {}};
 					std::string digits {};
 					for (char c : strokeData) {
@@ -296,7 +297,8 @@ public:
 				}
 			}
 
-			result.elements.append_range(timelineElems);
+			for (Element& e : timelineElems)
+				result.elements.push_back(std::move(e));
 
 			if (i<tkn.size() && tkn[i] == ";") break;
 		}
