@@ -249,6 +249,7 @@ public:
 			// All 'statements' must contain > 0 elements.
 			if (elemsList.empty()) return {};
 
+			// TODO: possibly merge these two functions into one
 			std::vector<Element> timelineElems {};
 			if (isAny(elemsList[0].type, "Data", "Pencil")) {
 				for (const Token strokeData : elemsList[0].members) {
@@ -292,6 +293,8 @@ public:
 					timelineElems.push_back(stroke);
 				}
 			}
+
+			// TODO: apply affine matrix
 
 			for (Element& e : timelineElems)
 				result.elements.push_back(std::move(e));
