@@ -17,12 +17,11 @@
 % Elem , Elem Mod Mod , Elem ;
 
 % Each element and modifier is preceded by a type and a colon.
-% The colon is omitted if the type described an empty object
+% The colon is omitted if the type describes an empty object
 % (though I haven't found a use for this yet.)
 
 % Raw data is encoded as base-36 triples (tick marks optional)
-% Negative values are allowed, but anything outside the bounds
-% of the 800 x 600 px canvas won't be rendered.
+% Negative values are allowed, and enocded like so:
 % (000, hzz) -> (+0, +23327)
 % (i00, zzz) -> (-23328, -1)
 %         (x,y)---(x,y)---(x,y)   (x,y)--- etc...
@@ -32,11 +31,11 @@ Data : [ 042'02o'05g'02q'051'04c 05h'01l'05a'01g'04m'01a'03u'01b'02x'026'02v'039
 % Brush data is encoded by alternating stroke diamaters
 % and strokes. The stroke diameters are 2 digit base-36
 % integers, and the stroke points are 8 base-36 digits each.
-% (The extra two denote that point's pressure.)
+% (The last two denote that point's pressure.)
 % (00, zz) -> (0.0, 1.0)
 
 %         dd xxxyyy pp xxxyyy pp etc...
-Brush : [ 0a 06m01g'k0'06m01r'l5'06l038'k8'06g04g'e0 0a 06m035'a0'06v033'a0'07d030'a0'08902s'a0 0a 08e01d'k0'08e01o'k0'08f01z'k0'08d047'k0'08b04n'k0 ],
+Brush : [ 0a 06m01g'k0'06m01r'l5'06l038'k8'06g04g'e0 0a 06m035'a0'06v033'a0'07d030'a0'08902s'a0 0a 08e01d'k0'08e01o'k0'08f01z'k0'08d047'k0'08b04n'k0 ]
 
 % Transformations are allowed to be applied to elements.
 % Here a square is translated and rotated by 30° clockwise.

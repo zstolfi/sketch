@@ -248,21 +248,29 @@ public:
 
 			// All 'statements' must contain > 0 elements.
 			if (elemsList.empty()) return {};
+			auto currElem = elemsList.begin;
 
-			// TODO: possibly merge these two functions into one
+			/* PARSE MAIN ELEMENT */
 			std::vector<Element> timelineElems {};
-			if (isAny(elemsList[0].type, "Data", "Pencil")) {
-				for (const Token strokeData : elemsList[0].members) {
-					Stroke stroke {3, {}};
+			if (isAny(currElem->type, "Data", "Pencil", "Brush")) {
+				const bool isBrush = currElem->type == "Brush";
+				for (std::size_t j=0; j<currElem->members.size(); /**/) {
+					unsigned diameter = isBrush
+						? base36<2,unsigned>(currElem->members[j++])
+						: 3;
+					Stroke stroke {diameter, {}};
 					std::string digits {};
-					for (char c : strokeData) {
+					for (char c : currElem->members[j++]) {
 						if (c == '\'') continue;
 						digits.push_back(c);
-						if (digits.size() < 6) continue;
+						if (digits.size() < (isBrush? 8:6)) continue;
 						stroke.points.push_back(Point {
 							.x = base36<3,int16_t>(digits.substr(0, 3)),
 							.y = base36<3,int16_t>(digits.substr(3, 3)),
-							.pressure = 1.0
+							.pressure = isBrush
+								? base36<2,unsigned>(digits.substr(6,2))
+									/ (float)(36*36-1)
+								: 1.0f
 						});
 						digits.clear();
 					}
@@ -270,31 +278,12 @@ public:
 					timelineElems.push_back(stroke);
 				}
 			}
-			else if (elemsList[0].type == "Brush") {
-				for (std::size_t j=0; j<elemsList[0].members.size(); j+=2) {
-					const Token diameterData = elemsList[0].members[j+0];
-					const Token strokeData   = elemsList[0].members[j+1];
-					Stroke stroke {base36<2,unsigned>(diameterData), {}};
-					std::string digits {};
-					for (char c : strokeData) {
-						if (c == '\'') continue;
-						digits.push_back(c);
-						if (digits.size() < 8) continue;
-						stroke.points.push_back(Point {
-							.x = base36<3,int16_t>(digits.substr(0,3)),
-							.y = base36<3,int16_t>(digits.substr(3,3)),
-							.pressure =
-								base36<2,unsigned>(digits.substr(6,2))
-								/ (float)(36*36-1)
-						});
-						digits.clear();
-					}
-					assert(digits.empty());
-					timelineElems.push_back(stroke);
-				}
-			}
+			++currElem;
 
-			// TODO: apply affine matrix
+			/* PARSE ALL MODIFIERS */
+			for (; currElem != elemsList.end(); ++currElem) {
+				/* ... */
+			}
 
 			for (Element& e : timelineElems)
 				result.elements.push_back(std::move(e));
