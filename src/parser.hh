@@ -45,6 +45,18 @@ protected: // Useful functions for parsing:
 		return result;
 	}
 
+	// Parse integer constants
+	template <std::integral T=int>
+	static constexpr T base10(std::string_view str) {
+		return 1; // PH
+	}
+
+	// Parse floating point
+	template <std::floating_point T=double>
+	static constexpr T base10(std::string_view str) {
+		return 1.0; // PH
+	}
+
 	template <typename... Ts>
 	struct Overloaded : Ts... { using Ts::operator()...; };
 
@@ -248,7 +260,7 @@ public:
 
 			// All 'statements' must contain > 0 elements.
 			if (elemsList.empty()) return {};
-			auto currElem = elemsList.begin;
+			auto currElem = elemsList.begin();
 
 			/* PARSE MAIN ELEMENT */
 			std::vector<Element> timelineElems {};
@@ -269,7 +281,7 @@ public:
 							.y = base36<3,int16_t>(digits.substr(3, 3)),
 							.pressure = isBrush
 								? base36<2,unsigned>(digits.substr(6,2))
-									/ (float)(36*36-1)
+									/ float(36*36-1)
 								: 1.0f
 						});
 						digits.clear();
@@ -282,7 +294,32 @@ public:
 
 			/* PARSE ALL MODIFIERS */
 			for (; currElem != elemsList.end(); ++currElem) {
-				/* ... */
+				if (currElem->type == "Affine") {
+					std::array<float,9> m;
+					for (std::size_t j=0; j<9; j++)
+						m[j] = base10<float>(currElem->members[j]);
+					// std::array<float,9> m {
+					// 	1, 0, 100,
+					// 	0, 1, 100,
+					// 	0, 0, 1,
+					// };
+
+					for (Element e : timelineElems) {
+						assert(std::holds_alternative<Stroke>(e));
+						Stroke& stroke = std::get<Stroke>(e);
+						// TODO: Stroke scaling for non Pencil elements
+						// stroke.diameter *= scaleFactor;
+						for (Point& p : stroke.points) {
+							std::cout << p.x << ", " << p.y << "\n";
+							p = Point {
+								.x = int16_t(p.x*m[0] + p.y*m[1] + m[2]),
+								.y = int16_t(p.x*m[3] + p.y*m[4] + m[5]),
+								.pressure = p.pressure
+							};
+							std::cout << "\t" << p.x << ", " << p.y << "\n";
+						}
+					}
+				}
 			}
 
 			for (Element& e : timelineElems)
