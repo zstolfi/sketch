@@ -30,6 +30,7 @@ constexpr T pow(T x, std::size_t y) {
 }
 
 constexpr auto Log2_36 = 5.1699;
+constexpr auto Log2_10 = 3.3219;
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 

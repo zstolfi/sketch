@@ -45,16 +45,43 @@ protected: // Useful functions for parsing:
 		return result;
 	}
 
+	// TODO: base10 'verify' functions. These two functions
+	//       accept all valid inputs but also invalid ones.
+
 	// Parse integer constants
 	template <std::integral T=int>
 	static constexpr T base10(std::string_view str) {
-		return 1; // PH
+		int sign = 1;
+		switch (str.front()) {
+			case '+': str.remove_prefix(1); /*      */ break;
+			case '-': str.remove_prefix(1); sign = -1; break;
+		}
+
+		T result = 0;
+		for (char c : str) {
+			assert(isBase10(c));
+			result = 10*result + (c-'0');
+		}
+		if constexpr (std::is_signed_v<T>)
+			if (sign == -1) result = -result;
+		return result;
 	}
 
 	// Parse floating point
 	template <std::floating_point T=double>
 	static constexpr T base10(std::string_view str) {
-		return 1.0; // PH
+		using U = int;
+		if (std::size_t dot = str.find('.'); dot != str.npos) {
+			T result = 0;
+			const std::size_t fracSize = str.size()-(dot+1);
+
+			result += base10<U>(str.substr(0,dot));
+			result += base10<U>(str.substr(dot+1, fracSize))
+				/ pow((T)10, fracSize);
+
+			return result;
+		}
+		return (T)base10<U>(str);
 	}
 
 	template <typename... Ts>
