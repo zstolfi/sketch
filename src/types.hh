@@ -13,10 +13,10 @@ struct Stroke  { unsigned diameter; std::vector<Point> points; };
 struct Pattern { /* ... */ };
 struct Mask    { /* ... */ };
 struct Eraser  { Mask m; };
-using  Element = std::variant<Stroke, Pattern, Eraser/*, Marker*/>;
+using  Atom    = std::variant<Stroke, Pattern, Eraser/*, Marker*/>;
 struct Group   { /* ... */ };
 struct Sketch  {
-	std::vector<Element> elements;
+	std::vector<Atom>  atoms;
 	std::vector<Group> groups;
 };
 
@@ -48,13 +48,13 @@ struct RawSketch {
 
 	operator Sketch() const {
 		Sketch s {};
-		s.elements.reserve(strokes.size());
+		s.atoms.reserve(strokes.size());
 		for (RawStroke t : strokes)
-			s.elements.emplace_back(static_cast<Stroke>(t));
+			s.atoms.emplace_back(static_cast<Stroke>(t));
 		// s.groups = {
 		// 	Group {
 		// 		GroupKind::Data,
-		// 		std::span { s.elements }
+		// 		std::span { s.atoms }
 		// 	};
 		// };
 		return s;

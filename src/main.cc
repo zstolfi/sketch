@@ -107,9 +107,9 @@ int main() {
 
 		std::cout << "\n#### ELEMENTS ####\n";
 		if (auto sketch = SketchFormat::parse(tokens)) {
-			for (Element e : sketch->elements) {
-				if (!std::holds_alternative<Stroke>(e)) continue;
-				Stroke& s = std::get<Stroke>(e);
+			for (const Atom& a : sketch->atoms) {
+				if (!std::holds_alternative<Stroke>(a)) continue;
+				const Stroke& s = std::get<Stroke>(a);
 				std::cout << "width: " << s.diameter << "\n";
 				std::cout << "points:\n";
 				for (Point p : s.points)

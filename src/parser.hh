@@ -299,7 +299,7 @@ public:
 			auto currElem = elemsList.begin();
 
 			/* PARSE MAIN ELEMENT */
-			std::vector<Element> timelineElems {};
+			std::vector<Atom> timelineAtoms {};
 			if (isAny(currElem->type, "Data", "Pencil", "Brush")) {
 				const bool isBrush = currElem->type == "Brush";
 				for (std::size_t j=0; j<currElem->members.size(); /**/) {
@@ -323,7 +323,7 @@ public:
 						digits.clear();
 					}
 					assert(digits.empty());
-					timelineElems.push_back(stroke);
+					timelineAtoms.push_back(stroke);
 				}
 			}
 			++currElem;
@@ -335,9 +335,9 @@ public:
 					for (std::size_t j=0; j<9; j++)
 						m[j] = base10<float>(currElem->members[j]);
 
-					for (Element& e : timelineElems) {
-						assert(std::holds_alternative<Stroke>(e));
-						Stroke& stroke = std::get<Stroke>(e);
+					for (Atom& a : timelineAtoms) {
+						assert(std::holds_alternative<Stroke>(a));
+						Stroke& stroke = std::get<Stroke>(a);
 						// TODO: Stroke scaling for non Pencil elements
 						// stroke.diameter *= scaleFactor;
 						for (Point& p : stroke.points) {
@@ -353,8 +353,8 @@ public:
 				}
 			}
 
-			for (Element& e : timelineElems)
-				result.elements.push_back(std::move(e));
+			for (Atom& a : timelineAtoms)
+				result.atoms.push_back(std::move(a));
 
 			if (i<tkn.size() && tkn[i] == ";") break;
 		}
