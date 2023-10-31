@@ -84,7 +84,6 @@ protected: // Useful functions for parsing:
 
 			if (intSize)
 				result += base10<U>(str.substr(0,dot));
-
 			if (fracSize)
 				result += base10<U>(str.substr(dot+1, fracSize))
 				       *  pow((T)0.1, fracSize);
@@ -333,13 +332,10 @@ public:
 			for (; currElem != elemsList.end(); ++currElem) {
 				if (currElem->type == "Affine") {
 					std::array<float,9> m;
-					for (std::size_t j=0; j<9; j++) {
+					for (std::size_t j=0; j<9; j++)
 						m[j] = base10<float>(currElem->members[j]);
-						std::cout << m[j] << "\n";
-					}
 
-
-					for (Element e : timelineElems) {
+					for (Element& e : timelineElems) {
 						assert(std::holds_alternative<Stroke>(e));
 						Stroke& stroke = std::get<Stroke>(e);
 						// TODO: Stroke scaling for non Pencil elements
