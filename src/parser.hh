@@ -72,14 +72,24 @@ protected: // Useful functions for parsing:
 	static constexpr T base10(std::string_view str) {
 		using U = int;
 		if (std::size_t dot = str.find('.'); dot != str.npos) {
+			int sign = 1;
+			switch (str.front()) {
+				case '+': str.remove_prefix(1), dot--; /*      */ break;
+				case '-': str.remove_prefix(1), dot--; sign = -1; break;
+			}
+
 			T result = 0;
+			const std::size_t intSize  = dot;
 			const std::size_t fracSize = str.size()-(dot+1);
 
-			result += base10<U>(str.substr(0,dot));
-			result += base10<U>(str.substr(dot+1, fracSize))
-				/ pow((T)10, fracSize);
+			if (intSize)
+				result += base10<U>(str.substr(0,dot));
 
-			return result;
+			if (fracSize)
+				result += base10<U>(str.substr(dot+1, fracSize))
+				       *  pow((T)0.1, fracSize);
+
+			return sign*result;
 		}
 		return (T)base10<U>(str);
 	}
@@ -323,13 +333,11 @@ public:
 			for (; currElem != elemsList.end(); ++currElem) {
 				if (currElem->type == "Affine") {
 					std::array<float,9> m;
-					for (std::size_t j=0; j<9; j++)
+					for (std::size_t j=0; j<9; j++) {
 						m[j] = base10<float>(currElem->members[j]);
-					// std::array<float,9> m {
-					// 	1, 0, 100,
-					// 	0, 1, 100,
-					// 	0, 0, 1,
-					// };
+						std::cout << m[j] << "\n";
+					}
+
 
 					for (Element e : timelineElems) {
 						assert(std::holds_alternative<Stroke>(e));
