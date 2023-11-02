@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#include <span>
+#include <string>
 #include <variant>
 #include <cstdint>
 
@@ -12,12 +14,31 @@ struct Point   { int16_t x, y; float pressure; };
 struct Stroke  { unsigned diameter; std::vector<Point> points; };
 struct Pattern { /* ... */ };
 struct Mask    { /* ... */ };
-struct Eraser  { Mask m; };
-using  Atom    = std::variant<Stroke, Pattern, Eraser/*, Marker*/>;
-struct Group   { /* ... */ };
-struct Sketch  {
-	std::vector<Atom>  atoms;
-	std::vector<Group> groups;
+struct Eraser  { Mask shape; };
+struct Marker  { std::string text; };
+using  Atom    = std::variant<Stroke, Pattern, Eraser, Marker>;
+
+namespace Mod
+{
+	class Affine;
+	class Array;
+	#include "modifiers.hh"
+};
+using namespace Mod;
+
+using Modifier = std::variant<Affine, Array/*, ... */>;
+
+enum struct ElementType { Data, Brush, Pencil, Fill, Eraser, Lettering };
+
+struct Element {
+	ElementType           type;
+	std::span<const Atom> atoms;
+	std::vector<Modifier> modifiers;
+};
+
+struct Sketch {
+	std::vector<Atom>    atoms;
+	std::vector<Element> elements;
 };
 
 
@@ -51,10 +72,11 @@ struct RawSketch {
 		s.atoms.reserve(strokes.size());
 		for (RawStroke t : strokes)
 			s.atoms.emplace_back(static_cast<Stroke>(t));
-		// s.groups = {
-		// 	Group {
-		// 		GroupKind::Data,
-		// 		std::span { s.atoms }
+		// s.elements = {
+		// 	Element {
+		// 		ElementType::Data,
+		// 		std::span { s.atoms },
+		// 		.modifiers = {}
 		// 	};
 		// };
 		return s;

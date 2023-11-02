@@ -2,7 +2,8 @@
 // Header file for browser features we have to rely on
 // Javascript for which SDL doesn't currently support.
 
-namespace JS {
+namespace JS
+{
 	float penPressure = 1.0;
 	void listenForPenPressure();
 
@@ -12,7 +13,8 @@ namespace JS {
 	void paste();
 };
 
-extern "C" {
+extern "C"
+{
 	void jsSetPenPressure(float p) {
 		JS::penPressure = p;
 	}

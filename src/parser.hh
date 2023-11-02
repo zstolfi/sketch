@@ -219,7 +219,7 @@ private:
 
 	using V = std::variant<tNone, tSingle, tUnbounded, tBounded>;
 
-	static constexpr auto Elements = std::array {
+	static constexpr auto ElementsDefs = std::array {
 		// Compiler weirdly complains when the ", 1" is removed.
 		std::pair { "Data"sv  , V{ tUnbounded{tBase36, 1} }},
 		std::pair { "Pencil"sv, V{ tUnbounded{tBase36, 1} }},
@@ -234,15 +234,16 @@ private:
 		std::span<const Token> members;
 	};
 
+	// TODO: change std::optional to std::expected
 	static auto parseElement(const Tokens& tkn, std::size_t& i)
 	-> std::optional<ElementData> {
 		if (i+1 > tkn.size()) return {};
 		Token typeName = tkn[i++];
 
-		auto match = ranges::find_if(Elements,
+		auto match = ranges::find_if(ElementsDefs,
 			[&](auto t) { return t.first == typeName; }
 		);
-		if (match == Elements.end()) return {};
+		if (match == ElementsDefs.end()) return {};
 
 		using Ret_t = std::optional<ElementData>;
 		return std::visit(Overloaded {
