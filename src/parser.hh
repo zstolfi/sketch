@@ -1,19 +1,14 @@
 #pragma once
 #include <iostream>
 #include <algorithm>
-#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 #include <variant>
 #include <concepts>
-#include <cassert>
 #include "types.hh"
 #include "math.hh"
-namespace ranges = std::ranges;
-namespace views  = std::views;
-using namespace    std::literals;
 
 class ParserBase {
 protected: // Useful functions for parsing:
@@ -299,8 +294,17 @@ public:
 			if (elemsList.empty()) return {};
 			auto currElem = elemsList.begin();
 
-			/* PARSE MAIN ELEMENT */
 			std::vector<Atom> timelineAtoms {};
+			Element           timelineElem  {};
+
+			bool isGrouping = false;
+			if (auto it = elementTypeFromString.find(currElem->type)
+			;   it != elementTypeFromString.end()) {
+				isGrouping = true;
+				timelineElem.type = it->second;
+			}
+
+			/* PARSE MAIN ELEMENT */
 			if (isAny(currElem->type, "Data", "Pencil", "Brush")) {
 				const bool isBrush = currElem->type == "Brush";
 				for (std::size_t j=0; j<currElem->members.size(); /**/) {
@@ -327,6 +331,11 @@ public:
 					timelineAtoms.push_back(stroke);
 				}
 			}
+			else if (currElem->type == "Marker") {
+				timelineAtoms.push_back(Marker {
+					std::string {currElem->members[0]}
+				});
+			}
 			++currElem;
 
 			/* PARSE ALL MODIFIERS */
@@ -336,28 +345,19 @@ public:
 					for (std::size_t j=0; j<9; j++)
 						m[j] = base10<float>(currElem->members[j]);
 
-					for (Atom& a : timelineAtoms) {
-						assert(std::holds_alternative<Stroke>(a));
-						Stroke& stroke = std::get<Stroke>(a);
-						// TODO: Stroke scaling for non Pencil elements
-						// stroke.diameter *= scaleFactor;
-						for (Point& p : stroke.points) {
-							std::cout << p.x << ", " << p.y << "\n";
-							p = Point {
-								.x = int16_t(p.x*m[0] + p.y*m[1] + m[2]),
-								.y = int16_t(p.x*m[3] + p.y*m[4] + m[5]),
-								.pressure = p.pressure
-							};
-							std::cout << "\t" << p.x << ", " << p.y << "\n";
-						}
-					}
+					timelineElem.modifiers.push_back(Affine {m});
 				}
 			}
 
 			// TODO: Use a std::list instead of a std::vector as
 			//       to not invalidate the iterators on inserts.
+			if (isGrouping) {
+				timelineElem.atoms = timelineAtoms;
+				result.elements.push_back(timelineElem);
+			}
+			
 			for (Atom& a : timelineAtoms)
-				result.atoms.push_back(std::move(a));
+				result.atoms.push_back(a);
 
 			if (i<tkn.size() && tkn[i] == ";") break;
 		}

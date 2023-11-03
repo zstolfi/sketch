@@ -1,9 +1,16 @@
 #pragma once
 #include <vector>
+#include <ranges>
 #include <span>
 #include <string>
+#include <string_view>
 #include <variant>
+#include <map>
+#include <cassert>
 #include <cstdint>
+namespace ranges = std::ranges;
+namespace views  = std::views;
+using namespace    std::literals;
 
 struct RawPoint;
 struct RawStroke;
@@ -28,7 +35,17 @@ using namespace Mod;
 
 using Modifier = std::variant<Affine, Array/*, ... */>;
 
-enum struct ElementType { Data, Brush, Pencil, Fill, Eraser, Lettering };
+enum struct ElementType { Data, Pencil, Brush, Fill, Eraser, Lettering };
+
+// If the type is not found in the map, it
+// means that type doesn't correspond to a
+// "grouping" of elements. (i.e. Markers).
+const std::map<std::string_view,ElementType> elementTypeFromString {
+	{"Data"  , ElementType::Data  },
+	{"Pencil", ElementType::Pencil},
+	{"Brush" , ElementType::Brush },
+	{"Fill"  , ElementType::Fill  },
+};
 
 struct Element {
 	ElementType           type;
