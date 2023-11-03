@@ -354,6 +354,8 @@ public:
 				}
 			}
 
+			// TODO: Use a std::list instead of a std::vector as
+			//       to not invalidate the iterators on inserts.
 			for (Atom& a : timelineAtoms)
 				result.atoms.push_back(std::move(a));
 
