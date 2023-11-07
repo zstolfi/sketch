@@ -99,3 +99,5 @@ struct RawSketch {
 		return s;
 	}
 };
+
+#include "types print.hh"

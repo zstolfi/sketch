@@ -332,9 +332,14 @@ public:
 				}
 			}
 			else if (currElem->type == "Marker") {
-				timelineAtoms.push_back(Marker {
-					std::string {currElem->members[0]}
-				});
+				std::string_view message = currElem->members[0];
+				assert(message.starts_with('(')
+				&&     message.ends_with  (')'));
+				message.remove_prefix(1), message.remove_suffix(1);
+				
+				timelineAtoms.push_back(
+					Marker {std::string {message}}
+				);
 			}
 			++currElem;
 
