@@ -294,8 +294,8 @@ public:
 			if (elemsList.empty()) return {};
 			auto currElem = elemsList.begin();
 
-			std::vector<Atom> timelineAtoms {};
-			Element           timelineElem  {};
+			std::list<Atom> timelineAtoms {};
+			Element         timelineElem  {};
 
 			bool isGrouping = false;
 			if (auto it = elementTypeFromString.find(currElem->type)
@@ -336,7 +336,6 @@ public:
 				assert(message.starts_with('(')
 				&&     message.ends_with  (')'));
 				message.remove_prefix(1), message.remove_suffix(1);
-				
 				timelineAtoms.push_back(
 					Marker {std::string {message}}
 				);
@@ -354,15 +353,15 @@ public:
 				}
 			}
 
-			// TODO: Use a std::list instead of a std::vector as
-			//       to not invalidate the iterators on inserts.
 			if (isGrouping) {
-				timelineElem.atoms = timelineAtoms;
+				timelineElem.atoms = {
+					timelineAtoms.begin(),
+					timelineAtoms.end()
+				};
 				result.elements.push_back(timelineElem);
 			}
 			
-			for (Atom& a : timelineAtoms)
-				result.atoms.push_back(a);
+			result.atoms.splice(result.atoms.begin(), timelineAtoms);
 
 			if (i<tkn.size() && tkn[i] == ";") break;
 		}

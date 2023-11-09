@@ -21,6 +21,8 @@ std::ostream& operator<<(std::ostream& os, const Marker& m) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Sketch& s) {
+	auto groupIt = s.elements.begin();
+
 	for (auto it=s.atoms.begin(); it!=s.atoms.end(); ++it) {
 		if (std::holds_alternative<Stroke>(*it))
 			os << std::get<Stroke>(*it);

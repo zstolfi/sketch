@@ -2,6 +2,7 @@
 #include <vector>
 #include <ranges>
 #include <span>
+#include <list>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -48,13 +49,14 @@ const std::map<std::string_view,ElementType> elementTypeFromString {
 };
 
 struct Element {
-	ElementType           type;
-	std::span<const Atom> atoms;
+	struct AtomRange { std::list<Atom>::iterator begin, end; };
+	ElementType type;
+	AtomRange atoms;
 	std::vector<Modifier> modifiers;
 };
 
 struct Sketch {
-	std::vector<Atom>    atoms;
+	std::list  <Atom>    atoms;
 	std::vector<Element> elements;
 };
 
@@ -86,9 +88,8 @@ struct RawSketch {
 
 	operator Sketch() const {
 		Sketch s {};
-		s.atoms.reserve(strokes.size());
 		for (RawStroke t : strokes)
-			s.atoms.emplace_back(static_cast<Stroke>(t));
+			s.atoms.push_back(static_cast<Stroke>(t));
 		// s.elements = {
 		// 	Element {
 		// 		ElementType::Data,
