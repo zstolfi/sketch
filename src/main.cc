@@ -52,7 +52,7 @@ bool detectEvents(AppState& s) {
 				case SDLK_ESCAPE:
 					s.quit = true;
 					break;
-				case SDLK_c: // TODO: figure out modifier
+				case SDLK_c: // TODO: figure out modifier keys
 					JS::copy();
 					break;
 				case SDLK_v:
@@ -93,7 +93,7 @@ int main() {
 	if (std::ifstream input {"example file.hsc"}; !input) {
 		std::cerr << "File not found!.\n";
 	}
-	else  {
+	else {
 		std::istreambuf_iterator<char> it {input}, end {};
 		std::string inString {it, end};
 		auto tokens = SketchFormat::tokenize(inString);
@@ -104,6 +104,9 @@ int main() {
 		std::cout << "\n#### ELEMENTS ####\n";
 		if (auto sketch = SketchFormat::parse(tokens)) {
 			std::cout << *sketch << "\n";
+			state.example = RawSketch ({
+				RawStroke ({{0,0}, {800,0}, {800,600}, {0,600}, {0,0}})
+			});
 		}
 		std::cout << "\n#### END ####\n";
 	}
@@ -125,6 +128,6 @@ int main() {
 			0, true
 		);
 #	else
-		while (!state.quit) appLoopBody(window, state);
+		while (!state.quit) appLoopBody(window, renderer, state);
 #	endif
 }

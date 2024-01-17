@@ -9,4 +9,6 @@ INPUT = --embed-file ../web/input@/
 OUTPUT = -o ../web/output/sketch.html
 
 all :
+	copy ".\tests\example file.hsc" "..\web\input\example file.hsc"
+	copy ".\tests\example raw.sketch" "..\web\input\example raw.sketch"
 	em++ main.cc $(COMPILER_FLAGS) $(FUNCTIONS) $(INPUT) $(OUTPUT)

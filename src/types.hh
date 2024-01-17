@@ -10,8 +10,11 @@
 #include <cassert>
 #include <cstdint>
 namespace ranges = std::ranges;
-namespace views  = std::views;
-using namespace    std::literals;
+using namespace std::literals;
+
+struct Point;
+struct Stroke;
+struct Sketch;
 
 struct RawPoint;
 struct RawStroke;
@@ -26,27 +29,30 @@ struct Eraser  { Mask shape; };
 struct Marker  { std::string text; };
 using  Atom    = std::variant<Stroke, Pattern, Eraser, Marker>;
 
-namespace Mod
-{
-	class Affine;
-	class Array;
-	#include "modifiers.hh"
+// Modifier Types:
+class Affine {
+	std::array<float,9> m;
+public:
+	Affine();
+	Affine(std::array<float,9> m);
+	std::vector<Atom> operator()(std::span<const Atom> atoms);
 };
-using namespace Mod;
+
+class Array {
+	Affine transformation;
+	std::size_t n;
+public:
+	std::vector<Atom> operator()(std::span<const Atom> atoms);
+};
 
 using Modifier = std::variant<Affine, Array/*, ... */>;
 
-enum struct ElementType { Data, Pencil, Brush, Fill, Eraser, Lettering };
+enum struct ElementType { Data, Pencil, Brush, Fill, Eraser, Letters };
 
 // If the type is not found in the map, it
 // means that type doesn't correspond to a
 // "grouping" of elements. (i.e. Markers).
-const std::map<std::string_view,ElementType> elementTypeFromString {
-	{"Data"  , ElementType::Data  },
-	{"Pencil", ElementType::Pencil},
-	{"Brush" , ElementType::Brush },
-	{"Fill"  , ElementType::Fill  },
-};
+const std::map<std::string_view,ElementType> elementTypeFromString;
 
 struct Element {
 	struct AtomRange { std::list<Atom>::iterator begin, end; };
@@ -58,47 +64,24 @@ struct Element {
 struct Sketch {
 	std::list  <Atom>    atoms;
 	std::vector<Element> elements;
+	// RawSketch flatten();
 };
 
 
 // Raw Data Types:
 struct RawPoint  {
 	int16_t x, y;
-
-	operator Point() const {
-		return Point {.x=x, .y=y, .pressure=1.0};
-	}
 };
 
 struct RawStroke {
 	std::vector<RawPoint> points;
-
-	operator Stroke() const {
-		Stroke s {};
-		s.points.reserve(points.size());
-		for (RawPoint p : points)
-			s.points.push_back(static_cast<Point>(p));
-		s.diameter = 3;
-		return s;
-	}
 };
 
 struct RawSketch {
 	std::vector<RawStroke> strokes;
-
-	operator Sketch() const {
-		Sketch s {};
-		for (RawStroke t : strokes)
-			s.atoms.push_back(static_cast<Stroke>(t));
-		// s.elements = {
-		// 	Element {
-		// 		ElementType::Data,
-		// 		std::span { s.atoms },
-		// 		.modifiers = {}
-		// 	};
-		// };
-		return s;
-	}
 };
 
-#include "types print.hh"
+std::ostream& operator<<(std::ostream& os, const Point& p);
+std::ostream& operator<<(std::ostream& os, const Stroke& s);
+std::ostream& operator<<(std::ostream& os, const Marker& m);
+std::ostream& operator<<(std::ostream& os, const Sketch& s);
