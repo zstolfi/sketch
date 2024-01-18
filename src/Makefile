@@ -1,14 +1,25 @@
-FUNCTIONS = -sEXPORTED_FUNCTIONS=_main,_jsSetPenPressure,_jsSetClipboard,_jsGetClipboard -sEXPORTED_RUNTIME_METHODS=cwrap
+CC        = emcc
+CXX       = em++
+CXXFLAGS  = -std=c++23 -Wall
+LDFLAGS   = -sUSE_SDL=2
+FUNCTIONS = _main,_jsSetPenPressure,_jsSetClipboard,_jsGetClipboard
 
-EXPORTED_FUNCTIONS = -static-libgcc -static-libstdc++
+INPUT     = ../web/input@/
+TARGET    = ../web/output/sketch.html
 
-COMPILER_FLAGS = -std=c++23 -sUSE_SDL=2
+SOURCES   = $(wildcard *.cc)
+OBJECTS   = $(SOURCES:.cc=.o)
+LDFLAGS  += -sEXPORTED_FUNCTIONS=$(FUNCTIONS)
+LDFLAGS  += -sEXPORTED_RUNTIME_METHODS=ccall,cwrap
+LDFLAGS  += --embed-file $(INPUT)
 
-INPUT = --embed-file ../web/input@/
+all : $(SOURCES) $(TARGET)
 
-OUTPUT = -o ../web/output/sketch.html
+$(TARGET) : $(OBJECTS)
+	$(CXX) $(LDFLAGS) $(OBJECTS) -o $@
 
-all :
-	copy ".\tests\example file.hsc" "..\web\input\example file.hsc"
-	copy ".\tests\example raw.sketch" "..\web\input\example raw.sketch"
-	em++ main.cc $(COMPILER_FLAGS) $(FUNCTIONS) $(INPUT) $(OUTPUT)
+.cc.o :
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+clean :
+	rm -f *.o $(basename $(TARGET)).*

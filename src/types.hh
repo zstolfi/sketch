@@ -52,7 +52,12 @@ enum struct ElementType { Data, Pencil, Brush, Fill, Eraser, Letters };
 // If the type is not found in the map, it
 // means that type doesn't correspond to a
 // "grouping" of elements. (i.e. Markers).
-const std::map<std::string_view,ElementType> elementTypeFromString;
+const std::map<std::string_view,ElementType> elementTypeFromString {
+	{"Data"  , ElementType::Data  },
+	{"Pencil", ElementType::Pencil},
+	{"Brush" , ElementType::Brush },
+	{"Fill"  , ElementType::Fill  },
+};
 
 struct Element {
 	struct AtomRange { std::list<Atom>::iterator begin, end; };
@@ -64,7 +69,7 @@ struct Element {
 struct Sketch {
 	std::list  <Atom>    atoms;
 	std::vector<Element> elements;
-	// RawSketch flatten();
+	RawSketch flatten();
 };
 
 
