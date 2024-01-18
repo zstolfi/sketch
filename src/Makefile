@@ -7,7 +7,6 @@ FUNCTIONS = _main,_jsSetPenPressure,_jsSetClipboard,_jsGetClipboard
 INPUT     = ../web/input@/
 OUTPUT    = ../web/output/
 TARGET    = $(OUTPUT)sketch.js
-INDEXHTML = $(OUTPUT)index.html
 
 SOURCES   = $(wildcard *.cc)
 OBJECTS   = $(SOURCES:.cc=.o)
@@ -15,16 +14,19 @@ LDFLAGS  += -sEXPORTED_FUNCTIONS=$(FUNCTIONS)
 LDFLAGS  += -sEXPORTED_RUNTIME_METHODS=ccall,cwrap
 LDFLAGS  += --embed-file $(INPUT)
 
-all : $(SOURCES) $(TARGET) $(INDEXHTML)
+all : $(SOURCES) $(TARGET) webpage
 
 $(TARGET) : $(OBJECTS)
 	$(CXX) $(LDFLAGS) $(OBJECTS) -o $@
 
-.cc.o :
+%.o : %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(INDEXHTML) : ./webpage/index.html
-	cp ./webpage/index.html $(INDEXHTML)
+# I have yet to figure out how to do this correctly
+webpage :
+	cp -u ./webpage/* $(OUTPUT)
+
+.PHONY : webpage
 
 clean :
-	rm -f *.o $(basename $(TARGET)).* $(INDEXHTML)
+	rm -f *.o $(OUTPUT)*
