@@ -104,9 +104,7 @@ int main() {
 		std::cout << "\n#### ELEMENTS ####\n";
 		if (auto sketch = SketchFormat::parse(tokens)) {
 			std::cout << *sketch << "\n";
-			state.example = RawSketch ({
-				RawStroke ({{0,0}, {800,0}, {800,600}, {0,600}, {0,0}})
-			});
+			state.example = sketch->flatten();
 		}
 		std::cout << "\n#### END ####\n";
 	}

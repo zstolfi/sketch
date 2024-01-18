@@ -12,17 +12,21 @@
 namespace ranges = std::ranges;
 using namespace std::literals;
 
-struct Point;
-struct Stroke;
-struct Sketch;
+// Raw Data Types:
+struct RawPoint  { int16_t x, y; };
+struct RawStroke { std::vector<RawPoint> points; };
+struct RawSketch { std::vector<RawStroke> strokes; };
 
-struct RawPoint;
-struct RawStroke;
-struct RawSketch;
+// .HSC Data Types:
+struct Point   {
+	int16_t x, y;
+	float pressure;
+};
+struct Stroke  {
+	unsigned diameter;
+	std::vector<Point> points;
+};
 
-// Editor Data Types:
-struct Point   { int16_t x, y; float pressure; };
-struct Stroke  { unsigned diameter; std::vector<Point> points; };
 struct Pattern { /* ... */ };
 struct Mask    { /* ... */ };
 struct Eraser  { Mask shape; };
@@ -49,16 +53,6 @@ using Modifier = std::variant<Affine, Array/*, ... */>;
 
 enum struct ElementType { Data, Pencil, Brush, Fill, Eraser, Letters };
 
-// If the type is not found in the map, it
-// means that type doesn't correspond to a
-// "grouping" of elements. (i.e. Markers).
-const std::map<std::string_view,ElementType> elementTypeFromString {
-	{"Data"  , ElementType::Data  },
-	{"Pencil", ElementType::Pencil},
-	{"Brush" , ElementType::Brush },
-	{"Fill"  , ElementType::Fill  },
-};
-
 struct Element {
 	struct AtomRange { std::list<Atom>::iterator begin, end; };
 	ElementType type;
@@ -73,18 +67,6 @@ struct Sketch {
 };
 
 
-// Raw Data Types:
-struct RawPoint  {
-	int16_t x, y;
-};
-
-struct RawStroke {
-	std::vector<RawPoint> points;
-};
-
-struct RawSketch {
-	std::vector<RawStroke> strokes;
-};
 
 std::ostream& operator<<(std::ostream& os, const Point& p);
 std::ostream& operator<<(std::ostream& os, const Stroke& s);

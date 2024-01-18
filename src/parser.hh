@@ -10,6 +10,7 @@
 #include <vector>
 #include <variant>
 #include <concepts>
+using namespace std::literals;
 
 class ParserBase {
 protected: // Useful functions for parsing:
@@ -122,6 +123,16 @@ private:
 		std::pair { "Affine"sv, V{ tBounded  {tNumber, 9} }},
 		std::pair { "Marker"sv, V{ tSingle   {tString   } }},
 		/* TODO: Mask */
+	};
+
+	// If the type is not found in the map, it
+	// means that type doesn't correspond to a
+	// "grouping" of elements. (i.e. Markers).
+	inline static const std::map elementTypeFromString {
+		std::pair {"Data"sv  , ElementType::Data  },
+		std::pair {"Pencil"sv, ElementType::Pencil},
+		std::pair {"Brush"sv , ElementType::Brush },
+		std::pair {"Fill"sv  , ElementType::Fill  },
 	};
 
 	struct ElementData {
