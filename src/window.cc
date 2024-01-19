@@ -6,6 +6,9 @@ Window::Window(const char* title, unsigned W, unsigned H)
 	// Initialize SDL stuff on window construction
 	std::cout << "Initializing SDL video...\n";
 	SDL_Init(SDL_INIT_VIDEO);
+#	ifdef __EMSCRIPTEN__
+		SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");	
+#	endif
 	std::cout << "Creating SDL window...\n";
 	sdlWindow = SDL_CreateWindow(title,
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,

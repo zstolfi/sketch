@@ -74,10 +74,9 @@ int main() {
 	std::string title = "[Offline] Sketch Client";
 	if (config) std::getline(config, title);
 
-	static // Emscripten destructs this early if it's not set static.
-	Window window {title.c_str(), 800, 600};
-	AppState state {};
-	Renderer renderer {
+	static Window window {title.c_str(), 800, 600};
+	static AppState state {};
+	static Renderer renderer {
 		window.pixels, window.width(), window.height(),
 		[=](Col3 c) -> uint32_t {
 			return SDL_MapRGB(window.format, c.r, c.g, c.b);

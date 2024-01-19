@@ -5,23 +5,38 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>[Offline] Sketch Client</title>
 	<style type="text/css">
-canvas.emscripten {
+.emscriptenBorder {
+	width: 800px;
+	height: 600px;
 	border: 1px solid black;
+}
+/* The canvas must not have any border or padding, or the mouse coords will be wrong. */
+canvas.emscripten {
+	border: 0px none; padding: 0px;
 }
 	</style>
 </head>
 <body>
 	<h1>Sketch Client</h1>
-	<canvas width="800" height="600" class="emscripten" id="canvas"></canvas>
+	<div class="emscriptenBorder">
+		<canvas width="800" height="600" class="emscripten" id="canvas"></canvas>
+	</div>
 	<script type="text/javascript">
 var Module = {
 	preRun: [],
-	postRun: [],
+
+	postRun: [function() {
+		// A bit if a hack, but this enables me to use
+		// a trackpad to 'resize' the canvas as I like
+		let i = JSEvents.eventHandlers.findIndex((h) => h.eventTypeString == "wheel");
+		if (i != -1) JSEvents._removeHandler(i);
+	}],
+
 	canvas: (function() {
-		var canvas = document.getElementById('canvas');
+		var canvas = document.getElementById("canvas");
 
 		canvas.addEventListener("webglcontextlost", function(e) {
-				alert('WebGL context lost. You will need to reload the page.');
+				alert("WebGL context lost. You will need to reload the page.");
 				e.preventDefault();
 			}, false
 		);

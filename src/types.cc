@@ -8,10 +8,10 @@ RawSketch Sketch::flatten() {
 	});
 }
 
-Affine::Affine() : m{1,0,0 , 0,1,0 , 0,0,1} {}
-Affine::Affine(std::array<float,9> m) : m{m} {}
+Mod::Affine::Affine() : m{1,0,0 , 0,1,0 , 0,0,1} {}
+Mod::Affine::Affine(std::array<float,9> m) : m{m} {}
 
-std::vector<Atom> Affine::operator()(std::span<const Atom> atoms) {
+std::vector<Atom> Mod::Affine::operator()(std::span<const Atom> atoms) {
 	std::vector<Atom> result {};
 	ranges::copy(atoms, result.end());
 	for (Atom& a : result) {
@@ -30,7 +30,9 @@ std::vector<Atom> Affine::operator()(std::span<const Atom> atoms) {
 	return result;
 }
 
-std::vector<Atom> Array::operator()(std::span<const Atom> atoms) {
+Mod::Array::Array(Affine tf, std::size_t n) : transformation{tf}, n{n} {}
+
+std::vector<Atom> Mod::Array::operator()(std::span<const Atom> atoms) {
 	std::vector<Atom> result {};
 	/* ... */
 	return result;
@@ -57,7 +59,7 @@ std::ostream& operator<<(std::ostream& os, const Marker& m) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Sketch& s) {
-	auto groupIt = s.elements.begin();
+	// auto groupIt = s.elements.begin();
 
 	for (auto it=s.atoms.begin(); it!=s.atoms.end(); ++it) {
 		if (std::holds_alternative<Stroke>(*it))

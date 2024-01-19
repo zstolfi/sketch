@@ -211,7 +211,7 @@ auto SketchFormat::parse(const Tokens& tkn)
 				for (std::size_t j=0; j<9; j++)
 					m[j] = base10<float>(currElem->members[j]);
 
-				timelineElem.modifiers.push_back(Affine {m});
+				timelineElem.modifiers.push_back(Mod::Affine {m});
 			}
 		}
 
