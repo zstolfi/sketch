@@ -1,17 +1,18 @@
 #include "types.hh"
-// #include "base36.hh"
+#include "base36.hh"
 #include <algorithm>
 #include <ranges>
 #include <cassert>
 namespace ranges = std::ranges;
 
 void RawSketch::sendTo(std::ostream& os) {
-	// for (const RawStroke& s : strokes) {
-	// 	os << " ";
-	// 	for (const RawPoint& p : s.points) {
-	// 		os << asBase36<2>(p.x) << asBase36(p.y);
-	// 	}
-	// }
+	for (const RawStroke& s : strokes) {
+		os << " ";
+		for (const RawPoint& p : s.points) {
+			os << Base36::toString<2>(p.x)
+			   << Base36::toString<2>(p.y);
+		}
+	}
 }
 
 RawSketch Sketch::flatten() {
