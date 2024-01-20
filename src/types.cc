@@ -1,9 +1,8 @@
 #include "types.hh"
 #include "base36.hh"
+#include "util.hh"
 #include <algorithm>
-#include <ranges>
 #include <cassert>
-namespace ranges = std::ranges;
 
 void RawSketch::sendTo(std::ostream& os) {
 	for (const RawStroke& s : strokes) {

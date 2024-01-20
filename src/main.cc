@@ -114,6 +114,8 @@ int main() {
 		if (auto sketch = SketchFormat::parse(tokens)) {
 			std::cout << *sketch << "\n";
 			state.example = sketch->flatten();
+			std::cout << "And as a char stream:\n";
+			sketch->flatten().sendTo(std::cout);
 		}
 		std::cout << "\n#### END ####\n";
 	}

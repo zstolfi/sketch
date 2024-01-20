@@ -1,7 +1,5 @@
 #include "parser.hh"
 #include "util.hh"
-#include <ranges>
-namespace ranges = std::ranges;
 
 bool RawFormat::verify(std::istream& is) {
 	enum { S0, X1, X2, Y1, Y2 } state = S0;
