@@ -46,7 +46,7 @@ struct Pattern { /* ... */ };
 struct Mask    { /* ... */ };
 struct Eraser  { Mask shape; };
 struct Marker  { std::string text; };
-using  Atom    = std::variant<Stroke, Pattern, Eraser, Marker>;
+using  Atom    = std::variant<Stroke/*, Pattern, Eraser*/, Marker>;
 
 /* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 

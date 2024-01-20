@@ -1,11 +1,17 @@
 #include "types.hh"
+// #include "base36.hh"
 #include <algorithm>
 #include <ranges>
 #include <cassert>
 namespace ranges = std::ranges;
 
 void RawSketch::sendTo(std::ostream& os) {
-	/* ... */
+	// for (const RawStroke& s : strokes) {
+	// 	os << " ";
+	// 	for (const RawPoint& p : s.points) {
+	// 		os << asBase36<2>(p.x) << asBase36(p.y);
+	// 	}
+	// }
 }
 
 RawSketch Sketch::flatten() {
@@ -95,34 +101,32 @@ std::vector<Atom> Mod::Array::operator()(std::span<const Atom> atoms) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 std::ostream& operator<<(std::ostream& os, const Point& p) {
-	// os << "(" << p.x << ", "  << p.y << ", "  << p.pressure << ")";
+	os << "(" << p.x << ", "  << p.y << ", "  << p.pressure << ")";
 	return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Stroke& s) {
-	// os << "width: " << s.diameter << "\n";
-	// os << "points:";
-	// for (Point p : s.points)
-	// 	os << "\t" << p;
+	os << "width: " << s.diameter << "\t";
+	os << "points:";
+	for (Point p : s.points) os << "\t" << p;
 	return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Marker& m) {
-	// os << "message: " << m.text;
+	os << "message: " << m.text;
 	return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Sketch& s) {
-	// // auto groupIt = s.elements.begin();
-
-	// for (auto it=s.atoms.begin(); it!=s.atoms.end(); ++it) {
-	// 	if (std::holds_alternative<Stroke>(*it))
-	// 		os << std::get<Stroke>(*it);
-	// 	else if (std::holds_alternative<Marker>(*it))
-	// 		os << std::get<Marker>(*it);
-	// 	/* ... */
-
-	// 	if (std::distance(it, s.atoms.end())) os << "\n";
-	// }
+	for (const Element& elem : s.elements) {
+		std::cout << "ElementTypeID: " << (int)elem.type << "\n";
+		for (const Atom& atom : elem.atoms) {
+			std::visit(
+				[&](const auto& a) { os << "\t" << a << "\n"; },
+				atom
+			);
+		}
+		os << "\n";
+	}
 	return os;
 }

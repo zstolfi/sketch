@@ -111,11 +111,10 @@ int main() {
 			std::cout << "\t\"" << t << "\"\n";
 
 		std::cout << "\n#### ELEMENTS ####\n";
-		state.example = (Sketch {}).flatten();
-		// if (auto sketch = SketchFormat::parse(tokens)) {
-		// 	std::cout << *sketch << "\n";
-		// 	state.example = sketch->flatten();
-		// }
+		if (auto sketch = SketchFormat::parse(tokens)) {
+			std::cout << *sketch << "\n";
+			state.example = sketch->flatten();
+		}
 		std::cout << "\n#### END ####\n";
 	}
 
