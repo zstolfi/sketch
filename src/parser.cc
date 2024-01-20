@@ -1,5 +1,7 @@
 #include "parser.hh"
 #include "util.hh"
+#include <ranges>
+namespace ranges = std::ranges;
 
 bool RawFormat::verify(std::istream& is) {
 	enum { S0, X1, X2, Y1, Y2 } state = S0;
@@ -156,8 +158,8 @@ auto SketchFormat::parse(const Tokens& tkn)
 		if (elemsList.empty()) return {};
 		auto currElem = elemsList.begin();
 
-		std::list<Atom> timelineAtoms {};
-		Element         timelineElem  {};
+		std::vector<Atom> timelineAtoms {};
+		Element timelineElem {ElementType::Data, {}};
 
 		bool isGrouping = false;
 		if (auto it = elementTypeFromString.find(currElem->type)
@@ -180,9 +182,9 @@ auto SketchFormat::parse(const Tokens& tkn)
 					digits.push_back(c);
 					if (digits.size() < (isBrush? 8:6)) continue;
 					stroke.points.push_back(Point {
-						.x = base36<3,int16_t>(digits.substr(0, 3)),
-						.y = base36<3,int16_t>(digits.substr(3, 3)),
-						.pressure = isBrush
+						base36<3,int>(digits.substr(0, 3)),
+						base36<3,int>(digits.substr(3, 3)),
+						isBrush
 							? base36<2,unsigned>(digits.substr(6,2))
 								/ float(36*36-1)
 							: 1.0f
@@ -223,8 +225,6 @@ auto SketchFormat::parse(const Tokens& tkn)
 			result.elements.push_back(timelineElem);
 		}
 		
-		result.atoms.splice(result.atoms.begin(), timelineAtoms);
-
 		if (i<tkn.size() && tkn[i] == ";") break;
 	}
 	return result;

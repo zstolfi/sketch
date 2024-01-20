@@ -19,11 +19,13 @@ canvas.emscripten {
 <body>
 	<h1>Sketch Client</h1>
 	<div class="emscriptenBorder">
-		<canvas width="800" height="600" class="emscripten" id="canvas"></canvas>
+		<canvas width="800" height="600" class="emscripten" id="canvas" tabindex="0"></canvas>
 	</div>
 	<script type="text/javascript">
 var Module = {
-	preRun: [],
+	preRun: [function() {
+		console.log(`COMPILATION DATE : ${document.lastModified}`);
+	}],
 
 	postRun: [function() {
 		// A bit if a hack, but this enables me to use
@@ -40,6 +42,8 @@ var Module = {
 				e.preventDefault();
 			}, false
 		);
+
+		canvas.addEventListener("mouseup", (e) => e.target.focus());
 
 		return canvas;
 	})(),

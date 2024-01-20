@@ -1,30 +1,45 @@
 #pragma once
+#include <iostream>
+#include <sstream>
 #include <vector>
-#include <ranges>
-#include <span>
 #include <list>
+#include <span>
 #include <string>
-#include <string_view>
 #include <variant>
-#include <map>
-#include <cassert>
-#include <cstdint>
-namespace ranges = std::ranges;
+// #include <cstdint>
 using namespace std::literals;
 
-// Raw Data Types:
-struct RawPoint  { int16_t x, y; };
-struct RawStroke { std::vector<RawPoint> points; };
-struct RawSketch { std::vector<RawStroke> strokes; };
+/* ~~ .sketch Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-// .HSC Data Types:
-struct Point   {
-	int16_t x, y;
-	float pressure;
+struct RawPoint  {
+	int x, y;
 };
-struct Stroke  {
+
+struct RawStroke {
+	std::vector<RawPoint> points;
+};
+
+struct RawSketch {
+	using value_type = RawStroke;
+	std::vector<RawStroke> strokes;
+	void sendTo(std::ostream& os);
+};
+
+/* ~~ .HSC Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+struct Point {
+	int x, y;
+	float pressure;
+	Point(int x, int y, float p);
+	static Point fromRaw(const RawPoint& p);
+};
+
+struct Stroke {
 	unsigned diameter;
 	std::vector<Point> points;
+	Stroke();
+	Stroke(unsigned d, std::vector<Point> p);
+	static Stroke fromRaw(const RawStroke& s);
 };
 
 struct Pattern { /* ... */ };
@@ -33,7 +48,8 @@ struct Eraser  { Mask shape; };
 struct Marker  { std::string text; };
 using  Atom    = std::variant<Stroke, Pattern, Eraser, Marker>;
 
-// Modifier Types:
+/* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 namespace Mod
 {
 	class Affine {
@@ -55,24 +71,35 @@ namespace Mod
 
 using Modifier = std::variant<Mod::Affine, Mod::Array/*, ... */>;
 
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 enum struct ElementType { Data, Pencil, Brush, Fill, Eraser, Letters };
 
 struct Element {
-	struct AtomRange { std::list<Atom>::iterator begin, end; };
 	ElementType type;
-	AtomRange atoms;
+	std::vector<Atom> atoms;
 	std::vector<Modifier> modifiers;
+	Element(ElementType, std::vector<Atom>);
+	Element(ElementType, std::vector<Atom>, std::vector<Modifier>);
 };
 
 struct Sketch {
-	std::list  <Atom>    atoms;
+	using value_type = Element;
 	std::vector<Element> elements;
+	Sketch();
+	Sketch(std::vector<Element>);
+	static Sketch fromRaw(const RawSketch&);
+
 	RawSketch flatten();
 };
 
 
 
-std::ostream& operator<<(std::ostream& os, const Point& p);
-std::ostream& operator<<(std::ostream& os, const Stroke& s);
-std::ostream& operator<<(std::ostream& os, const Marker& m);
-std::ostream& operator<<(std::ostream& os, const Sketch& s);
+std::ostream& operator<<(std::ostream& os, const RawPoint&);
+std::ostream& operator<<(std::ostream& os, const RawStroke&);
+std::ostream& operator<<(std::ostream& os, const RawSketch&);
+
+std::ostream& operator<<(std::ostream& os, const Point&);
+std::ostream& operator<<(std::ostream& os, const Stroke&);
+std::ostream& operator<<(std::ostream& os, const Marker&);
+std::ostream& operator<<(std::ostream& os, const Sketch&);

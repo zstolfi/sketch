@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <fstream>
+#include <optional>
 #include "window.hh"
 #include "external.hh"
 #include "renderer.hh"
@@ -13,15 +14,23 @@ struct AppState {
 	bool quit = false;
 	
 	RawSketch example;
-	Point cursor;
+	std::optional<Point> cursor; // nullopt if off screen
 	bool pressed = false;
 };
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 void draw(Window& w, Renderer& r, const AppState& s) {
+	if (!s.cursor) {
+		std::cout << "Cursor is off screen!\n";
+	}
+	else {
+		std::cout << (s.pressed ? "DOWN" : "UP") << "\t";
+		std::cout << "x: " << s.cursor->x << "\t"
+		          << "y: " << s.cursor->y << "\n";
+	}
 	r.clear();
-	r.displayRaw(s.example);
+	r.displayRaw(s.example.strokes);
 	w.updatePixels();
 }
 
@@ -29,23 +38,24 @@ bool detectEvents(AppState& s) {
 	bool input = false;
 	for (SDL_Event ev; SDL_PollEvent(&ev); input=true)
 	switch (ev.type) {
+		if (SDL_GetMouseFocus() == nullptr) s.cursor = std::nullopt;
 		case SDL_QUIT:
 			s.quit = true;
 			break;
 		case SDL_MOUSEMOTION:
 			s.cursor = {
-				(int16_t) ev.motion.x,
-				(int16_t) ev.motion.y,
+				ev.motion.x,
+				ev.motion.y,
 				JS::penPressure
 			};
 			break;
 		case SDL_MOUSEBUTTONDOWN:
 			s.pressed = true;
-			s.cursor.pressure = JS::penPressure;
+			s.cursor->pressure = JS::penPressure;
 			break;
 		case SDL_MOUSEBUTTONUP:
 			s.pressed = false;
-			s.cursor.pressure = 0.0;
+			s.cursor->pressure = 0.0;
 			break;
 		case SDL_KEYDOWN:
 			switch (ev.key.keysym.sym) {
@@ -101,10 +111,11 @@ int main() {
 			std::cout << "\t\"" << t << "\"\n";
 
 		std::cout << "\n#### ELEMENTS ####\n";
-		if (auto sketch = SketchFormat::parse(tokens)) {
-			std::cout << *sketch << "\n";
-			state.example = sketch->flatten();
-		}
+		state.example = (Sketch {}).flatten();
+		// if (auto sketch = SketchFormat::parse(tokens)) {
+		// 	std::cout << *sketch << "\n";
+		// 	state.example = sketch->flatten();
+		// }
 		std::cout << "\n#### END ####\n";
 	}
 

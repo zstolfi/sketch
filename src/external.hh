@@ -7,6 +7,10 @@ namespace JS
 	extern float penPressure;
 	void listenForPenPressure();
 
+	// TODO:
+	extern bool mouseInFocus;
+	void listenForMouseFocus();
+
 	// XXX: keeps resetting to the empty string
 	extern const char* clipboard;
 	void copy();
@@ -15,7 +19,8 @@ namespace JS
 
 extern "C"
 {
-	void jsSetPenPressure(float p);
-	void jsSetClipboard(const char* str);
+	void jsSetPenPressure(float);
+	void jsSetMouseFocus(bool);
+	void jsSetClipboard(const char*);
 	const char* jsGetClipboard();
 }
