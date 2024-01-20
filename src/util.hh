@@ -27,9 +27,16 @@ namespace Util
 		char data[N];
 
 		constexpr FixedString(const char (&str)[N]) {
-			ranges::copy(str, &data[0]);
+			ranges::copy(str, ranges::begin(data));
 		}
 
 		constexpr bool operator<=>(const FixedString&) const = default;
 	};
+
+	template <typename T>
+	constexpr T pow(T x, std::size_t y) {
+		T result {1};
+		while (y--) result *= x;
+		return result;
+	}
 }

@@ -24,15 +24,17 @@ Real max(Ts... args) {
 
 Real clamp(Real x, Real a, Real b);
 
-template <typename T>
-constexpr T pow(T x, std::size_t y) {
-	T result {1};
-	while (y--) result *= x;
-	return result;
-}
+// TODO: move these to Util
+	template <typename T>
+	constexpr T pow(T x, std::size_t y) {
+		T result {1};
+		while (y--) result *= x;
+		return result;
+	}
 
-constexpr auto Log2_36 = 5.1699;
-constexpr auto Log2_10 = 3.3219;
+	constexpr auto Log2_36 = 5.1699;
+	constexpr auto Log2_10 = 3.3219;
+//
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
