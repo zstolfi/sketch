@@ -33,7 +33,7 @@ namespace Util
 
 		constexpr bool operator<=>(const FixedString&) const = default;
 		constexpr char operator[](std::size_t i) const { return data[i]; }
-		constexpr std::size_t size() const { return N; }
+		constexpr std::size_t size() const { return N-1; }
 		constexpr const char* begin() const { return &data[0]; }
 		constexpr const char* end  () const { return &data[N-1]; }
 	};
