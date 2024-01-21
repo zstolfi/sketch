@@ -6,8 +6,6 @@
 #include <span>
 #include <string>
 #include <variant>
-// #include <cstdint>
-using namespace std::literals;
 
 /* ~~ .sketch Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 

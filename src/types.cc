@@ -8,8 +8,8 @@ void RawSketch::sendTo(std::ostream& os) {
 	for (const RawStroke& s : strokes) {
 		os << " ";
 		for (const RawPoint& p : s.points) {
-			os << Base36::toString<2>(p.x)
-			   << Base36::toString<2>(p.y);
+			os << Base36::toString<2,unsigned>(p.x)
+			   << Base36::toString<2,unsigned>(p.y);
 		}
 	}
 }
@@ -99,6 +99,24 @@ std::vector<Atom> Mod::Array::operator()(std::span<const Atom> atoms) {
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+
+std::ostream& operator<<(std::ostream& os, const RawPoint& p) {
+	return os << Base36::toString<2,unsigned>(p.x)
+	/*     */ << Base36::toString<2,unsigned>(p.y);
+}
+
+std::ostream& operator<<(std::ostream& os, const RawStroke& stroke) {
+	for (const RawPoint& p : stroke.points) os << p;
+	return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const RawSketch& sketch) {
+	for (const RawStroke& s : sketch.strokes) os << " " << s;
+	return os;
+}
+
+
 
 std::ostream& operator<<(std::ostream& os, const Point& p) {
 	os << "(" << p.x << ", "  << p.y << ", "  << p.pressure << ")";

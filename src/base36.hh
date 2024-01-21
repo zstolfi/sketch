@@ -9,11 +9,11 @@
 template <std::size_t B, Util::FixedString Alphabet>
 struct Base {
 	static_assert(B > 1);
-	static_assert(ranges::size(Alphabet.data) >= B);
+	static_assert(Alphabet.size() >= B);
 	static_assert([]() {
 		// Check for digit uniqueness
-		for (char c : Alphabet.data) {
-			if (ranges::count(Alphabet.data, c) != 1) return false;
+		for (char c : Alphabet) {
+			if (ranges::count(Alphabet, c) != 1) return false;
 		}
 		return true;
 	} ());
@@ -25,20 +25,22 @@ struct Base {
 
 	static auto isDigit(char c) {
 		bool result {};
-		// result = ranges::contains(Alphabet.data, c);
-		result = ranges::find(Alphabet.data, c)
-		!=       ranges::end(Alphabet.data);
+		// result = ranges::contains(Alphabet, c);
+		result = ranges::find(Alphabet, c)
+		!=       ranges::end(Alphabet);
 		return result;
 	}
 
 	static auto digitValue(char c) {
 		std::size_t result {};
 		result = std::distance(
-			ranges::begin(Alphabet.data),
-			ranges::find(Alphabet.data, c)
+			ranges::begin(Alphabet),
+			ranges::find(Alphabet, c)
 		);
 		return result;
 	}
+
+	// TODO: write EnoughBits concept for ::parse and ::toString
 
 	template <std::size_t N, std::integral T>
 	static auto parse(std::string_view str)
@@ -70,13 +72,17 @@ struct Base {
 		return result;
 	}
 
-	template <std::size_t N, std::integral T>
-	static auto toString(T x) {
-		std::string result (N, Alphabet.data[0]);
+	template <std::size_t N, std::integral T, std::integral U>
+	static auto toString(U x) {
+		std::string result (N, Alphabet[0]);
+		// TODO: account for unsigned output
+		static_assert(std::is_unsigned_v<T>);
+
 		for (std::size_t i=0; i<N; i++) {
-			result[N-i-1] = Alphabet.data[x % B];
+			result[N-i-1] = Alphabet[x % B];
 			x /= B;
 		}
+
 		return result;
 	}
 };

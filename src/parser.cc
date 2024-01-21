@@ -1,34 +1,29 @@
 #include "parser.hh"
+#include "base36.hh"
 #include "util.hh"
+#include <string>
 
-bool RawFormat::verify(std::istream& is) {
-	enum { S0, X1, X2, Y1, Y2 } state = S0;
-	for (char c; is.get(c); )
-		if (isBase36(c))
-			state = (state == S0) ? X1
-			:       (state == X1) ? X2
-			:       (state == X2) ? Y1
-			:       (state == Y1) ? Y2
-			:     /*(state == Y2)*/ X1;
-		else if (isWhitespace(c) && (state == S0 || state == Y2))
-			state = S0;
-		else
-			return false;
-	return state == S0 || state == Y2;
-}
-
-RawSketch RawFormat::parse(std::istream& is) {
+auto RawFormat::parse(std::string_view str)
+-> std::expected<RawSketch, parseError> {
 	RawSketch result {};
-	for (std::string line; is >> std::ws >> line; ) {
+
+	for (std::size_t i=0, j=0; i<str.size(); i=j) {
+		while (i < str.size() && isWhitespace(str[i])) i++;
+		if (i == str.size()) break;
+		j = i;
+		while (j < str.size() && !isWhitespace(str[j])) j++;
+
 		RawStroke stroke {};
-		for (std::size_t i=0; i<line.size(); i+=4) {
-			RawPoint point {};
-			point.x = base36<3,int16_t>(line.substr(i+0, 2));
-			point.y = base36<3,int16_t>(line.substr(i+2, 2));
-			stroke.points.push_back(point);
+		if ((j-i)%4 != 0) return std::unexpected(StrokeLength);
+		for (std::size_t k=i; k<j; k+=4) {
+			auto x = Base36::parse<2,unsigned>(str.substr(k+0, 2));
+			auto y = Base36::parse<2,unsigned>(str.substr(k+2, 2));
+			if (!x || !y) return std::unexpected(ForeignDigit);
+			stroke.points.emplace_back(*x, *y);
 		}
 		result.strokes.push_back(stroke);
 	}
+
 	return result;
 }
 

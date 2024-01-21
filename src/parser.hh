@@ -3,20 +3,18 @@
 #include "math.hh"
 #include "util.hh"
 #include <iostream>
-#include <algorithm>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
 #include <map>
+#include <string_view>
 #include <variant>
+#include <vector>
 #include <concepts>
-using namespace std::literals;
+#include <expected>
+#include <span>
 
 class ParserBase {
 protected: // Useful functions for parsing:
-	static constexpr bool isWhitespace(char c) { return Util::isAny(c,' ','\t','\n','\r'); }
-	static constexpr bool isNewline   (char c) { return Util::isAny(c,'\n','\r'); }
+	static constexpr bool isWhitespace(char c) { return Util::isAny(c," \t\n\r"); }
+	static constexpr bool isNewline   (char c) { return Util::isAny(c,"\n\r"); }
 	static constexpr bool isLowercase (char c) { return 'a' <= c&&c <= 'z'; }
 	static constexpr bool isUppercase (char c) { return 'A' <= c&&c <= 'Z'; }
 	static constexpr bool isBase10    (char c) { return '0' <= c&&c <= '9'; }
@@ -94,8 +92,13 @@ protected: // Useful functions for parsing:
 
 class RawFormat : public ParserBase {
 public:
-	static bool verify(std::istream& is);
-	static RawSketch parse(std::istream& is);
+	enum parseError {
+		StrokeLength,
+		ForeignDigit,
+	};
+
+	static auto parse(std::string_view)
+	-> std::expected<RawSketch, parseError>;
 };
 
 class SketchFormat : public ParserBase {
