@@ -92,63 +92,36 @@ protected: // Useful functions for parsing:
 
 class RawFormat : public ParserBase {
 public:
-	enum parseError {
+	enum ParseError {
 		StrokeLength,
 		ForeignDigit,
 	};
 
 	static auto parse(std::string_view)
-	-> std::expected<RawSketch, parseError>;
+	-> std::expected<RawSketch, ParseError>;
 };
 
 class SketchFormat : public ParserBase {
-	using Token  = std::string_view;
-	using Tokens = std::vector<Token>;
+	enum ParseError {
+		/* ... */
+	};
+
+	struct Token {
+		/* ... */
+	};
+
+	static auto tokenize(std::string_view) -> std::vector<Token>;
+
+	template <typename T>
+	using Parser = std::expected<T, ParseError>(std::span<Token>);
+
+	static Parser   <Sketch>                      ketchParse;
+	static Parser /*└─*/<Element>                 elementParse;
+	static Parser /*    ├─*/<std::vector<Stroke>> typeDataParse;
+	static Parser /*    ├─*/<std::vector<Stroke>> typeRawParse;
+	static Parser /*    └─*/<std::string>         typeMarkerParse;
 
 public:
-	// Removes whitespace/comments.
-	static Tokens tokenize(std::string_view str);
-
-private:
-	enum ValueType { tBase36, tNumber, tString };
-
-	struct tNone      { };
-	struct tSingle    { ValueType type; };
-	struct tBounded   { ValueType type; std::size_t n; };
-	struct tUnbounded { ValueType type; std::size_t mult=1;};
-
-	using V = std::variant<tNone, tSingle, tUnbounded, tBounded>;
-
-	static constexpr auto ElementsDefs = std::array {
-		// Compiler weirdly complains when the ", 1" is removed.
-		std::pair { "Data"sv  , V{ tUnbounded{tBase36, 1} }},
-		std::pair { "Pencil"sv, V{ tUnbounded{tBase36, 1} }},
-		std::pair { "Brush"sv , V{ tUnbounded{tBase36, 2} }},
-		std::pair { "Affine"sv, V{ tBounded  {tNumber, 9} }},
-		std::pair { "Marker"sv, V{ tSingle   {tString   } }},
-		/* TODO: Mask */
-	};
-
-	// If the type is not found in the map, it
-	// means that type doesn't correspond to a
-	// "grouping" of elements. (i.e. Markers).
-	inline static const std::map elementTypeFromString {
-		std::pair {"Data"sv  , ElementType::Data  },
-		std::pair {"Pencil"sv, ElementType::Pencil},
-		std::pair {"Brush"sv , ElementType::Brush },
-		std::pair {"Fill"sv  , ElementType::Fill  },
-	};
-
-	struct ElementData {
-		Token type;
-		std::span<const Token> members;
-	};
-
-	// TODO: change std::optional to std::expected
-	static auto parseElement(const Tokens& tkn, std::size_t& i)
-	-> std::optional<ElementData>;
-
-public:
-	static auto parse(const Tokens& tkn)
-	-> std::optional<Sketch>;
+	static auto parse(std::string_view)
+	-> std::expected<Sketch, ParseError>;
 };
