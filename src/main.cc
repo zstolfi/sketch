@@ -104,20 +104,17 @@ int main() {
 	}
 	else {
 		std::istreambuf_iterator<char> it {input}, end {};
-		std::string inString {it, end};
-		auto tokens = SketchFormat::tokenize(inString);
+		std::string inputString {it, end};
 		std::cout << "\n#### TOKENS ####\n";
-		for (auto t : tokens)
-			std::cout << "\t\"" << t << "\"\n";
-
+		SketchFormat::printTokens(inputString);
 		std::cout << "\n#### ELEMENTS ####\n";
-		if (auto sketch = SketchFormat::parse(tokens)) {
-			std::cout << *sketch << "\n";
-			state.example = sketch->flatten();
-			std::cout << "And as a char stream:\n";
-			// accidentally re-invented the wheel here
-			sketch->flatten().sendTo(std::cout);
-		}
+		// if (auto sketch = SketchFormat::parse(inputString)) {
+		// 	std::cout << *sketch << "\n";
+		// 	state.example = sketch->flatten();
+		// 	std::cout << "And as a char stream:\n";
+		// 	// accidentally re-invented the wheel here
+		// 	sketch->flatten().sendTo(std::cout);
+		// }
 		std::cout << "\n#### END ####\n";
 	}
 

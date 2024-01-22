@@ -102,26 +102,33 @@ public:
 };
 
 class SketchFormat : public ParserBase {
+public:
 	enum ParseError {
-		/* ... */
+		UnbalancedString,
 	};
+
+	static auto parse(std::string_view)
+	-> std::expected<Sketch, ParseError>;
+
+private:
 
 	struct Token {
-		/* ... */
+		std::string_view string;
+		Token(std::string_view, std::size_t i, std::size_t j);
 	};
 
-	static auto tokenize(std::string_view) -> std::vector<Token>;
+	static auto tokenize(std::string_view)
+	-> std::expected<std::vector<Token>, ParseError>;
 
 	template <typename T>
 	using Parser = std::expected<T, ParseError>(std::span<Token>);
 
-	static Parser   <Sketch>                      ketchParse;
+	static Parser   <Sketch>                      sketchParse;
 	static Parser /*└─*/<Element>                 elementParse;
 	static Parser /*    ├─*/<std::vector<Stroke>> typeDataParse;
 	static Parser /*    ├─*/<std::vector<Stroke>> typeRawParse;
 	static Parser /*    └─*/<std::string>         typeMarkerParse;
 
 public:
-	static auto parse(std::string_view)
-	-> std::expected<Sketch, ParseError>;
+	static auto printTokens(std::string_view) -> void;
 };

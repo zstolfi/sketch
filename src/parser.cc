@@ -29,63 +29,80 @@ auto RawFormat::parse(std::string_view str)
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-auto SketchFormat::tokenize(std::string_view str) -> std::vector<Token> {
+SketchFormat::Token::Token(std::string_view s,
+	std::size_t i, std::size_t j
+) {
+	assert(i < j);
+	this->string = s.substr(i, j-i);
+}
+
+auto SketchFormat::tokenize(std::string_view str)
+-> std::expected<std::vector<Token>, ParseError> {
 	std::vector<Token> result {};
 
-	// auto resultAdd = [&](std::size_t i0, std::size_t i1) {
-	// 	result.push_back(str.substr(i0, i1-i0));
-	// };
+	auto resultPush = [&](std::size_t i, std::size_t j) {
+		result.emplace_back(str, i, j);
+	};
 
-	// // Token includes types/numbers/base36.
-	// // Op is any single character operator.
-	// enum {
-	// 	LineStart, Comment, Space, End,
-	// 	Token, String, StringEnd, Op
-	// }
-	// prevState = LineStart,
-	// nextState;
+	// Token includes types/numbers/base36.
+	// Op is any single character operator.
+	enum {
+		LineStart, Comment, Space, End,
+		Token, String, StringEnd, Op,
+	}
+	prevState = LineStart,
+	nextState = LineStart;
 
-	// std::size_t tokenStart=0;
-	// int parenCount = 0;
-	// for (std::size_t i=0; i<=str.size(); i++, prevState = nextState) {
-	// 	nextState = i==str.size() ? End :
-	// 	[&](auto state, char c) {
-	// 		if (state == LineStart && c == '%') return Comment;
-	// 		if (state == Comment)
-	// 			return isNewline(c) ? LineStart : Comment;
-	// 		if (state == String) {
-	// 			if (c == '(') ++parenCount;
-	// 			if (c == ')' && --parenCount <= 0) return StringEnd;
-	// 			return String;
-	// 		}
+	std::size_t tokenStart=0;
+	int parenCount = 0;
+	for (std::size_t i=0; i<=str.size(); i++, prevState = nextState) {
+		nextState = i==str.size() ? End :
+		[&](auto state, char c) {
+			if (state == LineStart && c == '%') return Comment;
+			if (state == Comment)
+				return isNewline(c) ? LineStart : Comment;
+			if (state == String) {
+				if (c == '(') ++parenCount;
+				if (c == ')' && --parenCount <= 0) return StringEnd;
+				return String;
+			}
 
-	// 		if (isNewline(c))     return LineStart;
-	// 		if (isWhitespace(c))  return Space;
-	// 		if (Util::isAny(c,":[],;")) return Op;
-	// 		if (c == '(')         return String;
-	// 		else /*            */ return Token;
-	// 	} (prevState, str[i]);
+			if (isNewline(c))     return LineStart;
+			if (isWhitespace(c))  return Space;
+			if (Util::isAny(c,":[],;")) return Op;
+			if (c == '(')         return String;
+			else /*  default:  */ return Token;
+		} (prevState, str[i]);
 
-	// 	if (prevState == Op) {
-	// 		resultAdd(i-1, i);
-	// 		if (str[i] == ';') return result;
-	// 	}
+		if (prevState == Op) {
+			resultPush(i-1, i);
+			if (str[i] == ';') return result;
+		}
 
-	// 	if (prevState != nextState) {
-	// 		if (nextState == Token) tokenStart = i;
-	// 		if (prevState == Token) resultAdd(tokenStart, i);
+		if (prevState != nextState) {
+			if (nextState == Token) tokenStart = i;
+			if (prevState == Token) resultPush(tokenStart, i);
 
-	// 		if (nextState == String) tokenStart=i, parenCount=1;
-	// 		if (nextState == StringEnd) resultAdd(tokenStart, i+1);
+			if (nextState == String) tokenStart=i, parenCount=1;
+			if (nextState == StringEnd) resultPush(tokenStart, i+1);
 
-	// 		// The source file ends with an unterminated string
-	// 		// literal. Which is probably because of unbalanced
-	// 		// parentheses in the string. The tokenizer doesn't
-	// 		// error because the validity can be checked later.
-	// 		if (prevState == String && nextState == End)
-	// 			resultAdd(tokenStart, i);
-	// 	}
-	// }
+			if (prevState == String && nextState == End)
+				return std::unexpected(UnbalancedString);
+		}
+	}
 
 	return result;
+}
+
+auto SketchFormat::printTokens(std::string_view str) -> void {
+	auto tokens = tokenize(str);
+	if (tokens) {
+		for (Token t : *tokens) {
+			std::cout << "\t\"" << t.string << "\"\n";
+		}
+	}
+	else {
+		std::cout << "\t!! Invalid tokens input !!\n";
+		std::cout << "\tError code: " << (int)tokens.error() << "\n";
+	}
 }
