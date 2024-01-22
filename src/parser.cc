@@ -14,6 +14,7 @@ auto RawFormat::parse(std::string_view str)
 		while (j < str.size() && !isWhitespace(str[j])) j++;
 
 		RawStroke stroke {};
+
 		if ((j-i)%4 != 0) return std::unexpected(StrokeLength);
 		for (std::size_t k=i; k<j; k+=4) {
 			auto x = Base36::parse<2,unsigned>(str.substr(k+0, 2));
@@ -141,7 +142,143 @@ auto SketchFormat::elementModParse(std::span<const Token> tokens)
 
 	if (elemParser == nullptr) return std::unexpected(UnknownElementType);
 
-	return elemParser(tokens);
+	return elemParser(
+		Util::subspan(tokens, ++tokens.cbegin(), tokens.cend())
+	);
+}
+
+auto SketchFormat::typeDataParse(std::span<const Token> tokens)
+-> std::expected<Element, ParseError> {
+	if (tokens.empty()) return std::unexpected(EmptyElement);
+	if (tokens[0] != Token {"["}) {
+		return std::unexpected(MissingBracketSqL);
+	}
+	if (!Util::contains(tokens, Token {"]"})) {
+		return std::unexpected(MissingBracketSqR);
+	}
+
+	Element result {ElementType::Data, {}};
+
+	auto it = ++tokens.cbegin();
+	const auto delimElem = ranges::find(tokens, Token {"]"});
+	result.atoms.reserve(std::distance(it, delimElem));
+
+	for (; it != delimElem; ++it) {
+		auto stroke = atomStrokeDataParse({it, 1uz});
+		if (!stroke) return std::unexpected(stroke.error());
+		result.atoms.push_back(*stroke);
+	}
+
+	auto modifiers = modStrokeParse(
+		Util::subspan(tokens, ++it, tokens.cend())
+	);
+	if (!modifiers) return std::unexpected(modifiers.error());
+	result.modifiers = std::move(*modifiers);
+
+	return result;
+}
+
+auto SketchFormat::typeRawParse(std::span<const Token> tokens)
+-> std::expected<Element, ParseError> {
+	if (tokens.empty()) return std::unexpected(EmptyElement);
+
+	if (tokens[0] != Token {"["}) {
+		return std::unexpected(MissingBracketSqL);
+	}
+	if (!Util::contains(tokens, Token {"]"})) {
+		return std::unexpected(MissingBracketSqR);
+	}
+
+	Element result {ElementType::Data, {}};
+
+	auto it = ++tokens.cbegin();
+	const auto delimElem = ranges::find(tokens, Token {"]"});
+	result.atoms.reserve(std::distance(it, delimElem));
+
+	for (; it != delimElem; ++it) {
+		auto stroke = atomStrokeRawParse({it, 1uz});
+		if (!stroke) return std::unexpected(stroke.error());
+		result.atoms.push_back(*stroke);
+	}
+
+	auto modifiers = modStrokeParse(
+		Util::subspan(tokens, ++it, tokens.cend())
+	);
+	if (!modifiers) return std::unexpected(modifiers.error());
+	result.modifiers = std::move(*modifiers);
+
+	return result;
+}
+
+auto SketchFormat::typeMarkerParse(std::span<const Token> tokens)
+-> std::expected<Element, ParseError> {
+	if (tokens.empty()) return std::unexpected(EmptyElement);
+	if (tokens[0].string.front() != "("
+	||  tokens[0].string.back()  != ")") {
+		return std::unexpected(MissingString);
+	}
+
+	Element result {ElementType::Marker, {
+		Marker ({++tokens[0].begin(), --tokens[0].end()})
+	}};
+
+	auto modifiers = modMarkerParse(
+		Util::subspan(tokens, ++tokens.cbegin(), tokens.cend())
+	);
+	if (!modifiers) return std::unexpected(modifiers.error());
+	result.modifiers = std::move(*modifiers);
+
+	return result;
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+auto SketchFormat::atomStrokeDataParse(std::span<const Token> tokens)
+-> std::expected<Stroke, ParseError> {
+	if (tokens.size() != 1) return std::unexpected(AtomSize);
+
+	auto strokeStr = removeTicks(tokens[0]);
+	if (!strokeStr) return std::unexpected(strokeStr.error());
+	auto& str = *strokeStr;
+
+	Stroke result {};
+
+	if (str.size()%6 != 0) return std::unexpected(StrokeLength);
+	for (std::size_t i=0; i<str.size(); i+=6) {
+		auto x = Base36::parse<3,signed>(str.substr(i+0, 3));
+		auto y = Base36::parse<3,signed>(str.substr(i+3, 3));
+		if (!x || !y) return std::unexpected(ForeignDigit);
+		result.points.emplace_back(3, *x, *y);
+	}
+	return result;
+}
+
+auto SketchFormat::atomStrokeRawParse(std::span<const Token> tokens)
+-> std::expected<Stroke, ParseError> {
+	if (tokens.size() != 1) return std::unexpected(AtomSize);
+
+	auto strokeStr = removeTicks(tokens[0]);
+	if (!strokeStr) return std::unexpected(strokeStr.error());
+	auto& str = *strokeStr;
+
+	Stroke result {};
+
+	if (str.size()%4 != 0) return std::unexpected(StrokeLength);
+	for (std::size_t i=0; i<str.size(); i+=4) {
+		auto x = Base36::parse<2,unsigned>(str.substr(i+0, 2));
+		auto y = Base36::parse<2,unsigned>(str.substr(i+2, 2));
+		if (!x || !y) return std::unexpected(ForeignDigit);
+		result.points.emplace_back(3, *x, *y);
+	}
+	return result;
+}
+
+auto SketchFormat::atomStringParse(std::span<const Token> tokens)
+-> std::expected<std::string, ParseError> {
+	std::string result {};
+	if (tokens.size() != 1) return std::unexpected(AtomSize);
+
+	return std::string {tokens[0].string};
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

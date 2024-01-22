@@ -107,8 +107,15 @@ public:
 		EmptyFile,
 		UnbalancedString,
 		MissingSemicolon,
+		MissingString,
 		EmptyElement,
 		UnknownElementType,
+		TickmarkOrdering,
+		MissingBracketSqL, // [
+		MissingBracketSqR, // ]
+		AtomSize,
+		StrokeLength,
+		ForeignDigit,
 	};
 
 	static auto parse(std::string_view)
@@ -131,10 +138,14 @@ private:
 	/*          */ -> std::expected<T, ParseError>;
 
 	static Parser   <Sketch>                      sketchParse;
-	static Parser /*└─*/<Element>                 elementModParse;
-	static Parser /*    ├─*/<std::vector<Stroke>> typeDataParse;
-	static Parser /*    ├─*/<std::vector<Stroke>> typeRawParse;
-	static Parser /*    └─*/<std::string>         typeMarkerParse;
+	static Parser /*├─*/<Element>                 elementModParse;
+	static Parser /*│   ├─*/<std::vector<Stroke>> typeDataParse;
+	static Parser /*│   ├─*/<std::vector<Stroke>> typeRawParse;
+	static Parser /*│   └─*/<std::string>         typeMarkerParse;
+	/*         */ /*└───<Atom>                 */
+	static Parser /*    ├─*/<Stroke>              atomStrokeDataParse;
+	static Parser /*    ├─*/<Stroke>              atomStrokeRawParse;
+	static Parser /*    └─*/<std::string>         atomStringParse;
 
 public:
 	static auto printTokens(std::string_view) -> void;

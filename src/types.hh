@@ -50,12 +50,14 @@ using  Atom    = std::variant<Stroke/*, Pattern, Eraser*/, Marker>;
 
 namespace Mod
 {
+	using Function_t = std::vector<Atom>(std::span<const Atom> atoms);
+
 	class Affine {
 		std::array<float,9> m;
 	public:
 		Affine();
 		Affine(std::array<float,9>);
-		std::vector<Atom> operator()(std::span<const Atom> atoms);
+		Function_t operator();
 	};
 
 	class Array {
@@ -63,15 +65,28 @@ namespace Mod
 		std::size_t n;
 	public:
 		Array(Affine tf, std::size_t n);
-		std::vector<Atom> operator()(std::span<const Atom> atoms);
+		Function_t operator();
 	};
-};
 
-using Modifier = std::variant<Mod::Affine, Mod::Array/*, ... */>;
+	class Uppercase {
+	public:
+		Uppercase();
+		Function_t operator();
+	}
+}
+
+using Modifier = std::variant<
+	Mod::Affine, Mod::Array,
+	Mod::Uppercase
+	/*, ... */
+>;
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-enum struct ElementType { Data, Pencil, Brush, Fill, Eraser, Letters };
+enum struct ElementType {
+	Data,/* Pencil, Brush, Fill, Eraser, Letters,*/
+	Marker,
+};
 
 struct Element {
 	ElementType type;
