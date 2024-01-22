@@ -25,9 +25,7 @@ struct Base {
 
 	static auto isDigit(char c) {
 		bool result {};
-		// result = ranges::contains(Alphabet, c);
-		result = ranges::find(Alphabet, c)
-		!=       ranges::end(Alphabet);
+		result = Util::contains(Alphabet, c);
 		return result;
 	}
 

@@ -29,11 +29,15 @@ auto RawFormat::parse(std::string_view str)
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-SketchFormat::Token::Token(std::string_view s,
+SketchFormat::Token::Token(std::string_view str) {
+	this->string = str;
+}
+
+SketchFormat::Token::Token(std::string_view str,
 	std::size_t i, std::size_t j
 ) {
 	assert(i < j);
-	this->string = s.substr(i, j-i);
+	this->string = str.substr(i, j-i);
 }
 
 auto SketchFormat::tokenize(std::string_view str)
@@ -93,6 +97,54 @@ auto SketchFormat::tokenize(std::string_view str)
 
 	return result;
 }
+
+auto SketchFormat::parse(std::string_view str)
+-> std::expected<Sketch, ParseError> {
+	auto tokens = tokenize(str);
+	if (!tokens) return std::unexpected(tokens.error());
+	return sketchParse(*tokens);
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+auto SketchFormat::sketchParse(std::span<const Token> tokens)
+-> std::expected<Sketch, ParseError> {
+	if (tokens.empty()) return std::unexpected(EmptyFile);
+	if (!Util::contains(tokens, Token {";"})) {
+		return std::unexpected(MissingSemicolon);
+	}
+	const auto delimEnd = ranges::find(tokens, Token {";"});
+
+	Sketch result {};
+
+	for (auto it = tokens.cbegin(); it != delimEnd; /**/) {
+		if (*it == Token {","}) ++it;
+		const auto delimNext = ranges::find(tokens, Token {","});
+		const auto delim = Util::min(delimNext, delimEnd);
+
+		auto element = elementModParse(Util::subspan(tokens, it, delim));
+		if (!element) return std::unexpected(element.error());
+		result.elements.push_back(*element);
+		it = delim;
+	}
+
+	return result;
+}
+
+auto SketchFormat::elementModParse(std::span<const Token> tokens)
+-> std::expected<Element, ParseError> {
+	if (tokens.empty()) return std::unexpected(EmptyElement);
+	Parser* elemParser = tokens[0] == Token {"Data"  } ? typeDataParse
+	:                    tokens[0] == Token {"Raw"   } ? typeRawParse
+	:                    tokens[0] == Token {"Marker"} ? typeMarkerParse
+	:                    /*                         */   nullptr;
+
+	if (elemParser == nullptr) return std::unexpected(UnknownElementType);
+
+	return elemParser(tokens);
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::printTokens(std::string_view str) -> void {
 	auto tokens = tokenize(str);
