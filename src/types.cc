@@ -4,23 +4,19 @@
 #include <algorithm>
 #include <cassert>
 
-void RawSketch::sendTo(std::ostream& os) {
-	for (const RawStroke& s : strokes) {
-		os << " ";
-		for (const RawPoint& p : s.points) {
-			os << Base36::toString<2,unsigned>(p.x)
-			   << Base36::toString<2,unsigned>(p.y);
-		}
-	}
-}
+// void RawSketch::sendTo(std::ostream& os) {
+// 	for (const RawStroke& s : strokes) {
+// 		os << " ";
+// 		for (const RawPoint& p : s.points) {
+// 			os << Base36::toString<2,unsigned>(p.x)
+// 			   << Base36::toString<2,unsigned>(p.y);
+// 		}
+// 	}
+// }
 
-RawSketch Sketch::flatten() {
-	return RawSketch ({
-		RawStroke ({{0,0}, {800,0}, {800,600}, {0,600}, {0,0}})
-	});
-}
+/* ~~ .HSC Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-Point::Point(int x, int y, float p)
+Point::Point(float p, int x, int y)
 : x{x}, y{y}, pressure{p} {}
 
 Point Point::fromRaw(const RawPoint& p) {
@@ -68,34 +64,98 @@ Element::Element(
 )
 : type{t}, atoms{a}, modifiers{m} {}
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 Mod::Affine::Affine() : m{1,0,0 , 0,1,0 , 0,0,1} {}
 Mod::Affine::Affine(std::array<float,9> m) : m{m} {}
 
-std::vector<Atom> Mod::Affine::operator()(std::span<const Atom> atoms) {
+auto Mod::Affine::operator*(Affine other) -> Affine {
+	const auto& a = this->m, b = other.m;
+	return Affine {
+		// Sudoku solution for 1/22/2024:
+		a[0]*b[0] + a[1]*b[3] + a[2]*b[6],
+		a[0]*b[1] + a[1]*b[4] + a[2]*b[7],
+		a[0]*b[2] + a[1]*b[5] + a[2]*b[8],
+
+		a[3]*b[0] + a[4]*b[3] + a[5]*b[6],
+		a[3]*b[1] + a[4]*b[4] + a[5]*b[7],
+		a[3]*b[2] + a[4]*b[5] + a[5]*b[8],
+
+		a[6]*b[0] + a[7]*b[3] + a[8]*b[6],
+		a[6]*b[1] + a[7]*b[4] + a[8]*b[7],
+		a[6]*b[2] + a[7]*b[5] + a[8]*b[8],
+	};
+}
+
+auto Mod::Affine::operator*(Point p) -> Point {
+	return Point {
+		/* .pressure */ 1.0,
+		.x = m[0]*p.x + m[1]*p.y + m[2]*1.0,
+		.y = m[3]*p.x + m[4]*p.y + m[5]*1.0
+	};
+}
+
+auto Mod::Affine::operator()(std::span<const Atom> atoms) {
 	std::vector<Atom> result {};
-	ranges::copy(atoms, result.end());
-	for (Atom& a : result) {
-		assert(std::holds_alternative<Stroke>(a));
-		Stroke& stroke = std::get<Stroke>(a);
-		// TODO: Stroke scaling for non Pencil elements
-		// stroke.diameter *= scaleFactor
-		for (Point& p : stroke.points) {
-			p.x = p.x*m[0] + p.y*m[1] + m[2];
-			p.y = p.x*m[3] + p.y*m[4] + m[5];
-			p.pressure = p.pressure;
-		}
+	result.reserve(atoms.size());
+	assert(ranges::all_of(atoms, std::holds_alternative<Atom_t>));
+
+	auto multiplyP = [this](Point p) -> Point {
+		return (*this) * p;
 	}
+
+	auto multiplyS = [this](const Atom_t& s) -> Atom_t {
+		return Atom_t {
+			.diameter = s.diameter;
+			.points {s.points | views::transform(multiplyP)}
+		};
+	}
+
+	ranges::copy(
+		atoms | views::transform(multiplyS),
+		std::back_inserter(result)
+	);
+
 	return result;
 }
 
 Mod::Array::Array(Affine tf, std::size_t n) : transformation{tf}, n{n} {}
 
-std::vector<Atom> Mod::Array::operator()(std::span<const Atom> atoms) {
+auto Mod::Array::operator()(std::span<const Atom> atoms) {
 	std::vector<Atom> result {};
 	/* ... */
 	return result;
+}
+
+Mod::Uppercase::Uppercase() {}
+
+auto Mod::Uppercase::operator()(std::span<const Atom> atoms) {
+	// std::vector<Atom> result (atoms.size(), Atom_t {});
+	std::vector<Atom> result {};
+	result.reserve(atoms.size());
+	assert(ranges::all_of(atoms, std::holds_alternative<Atom_t>));
+
+	auto toUpperM = [](const Atom_t& m) -> Atom_t {
+		return Atom_t {
+			.text {m.text | views::transform(std::toUpper)}
+		};
+	}
+
+	ranges::copy(
+		atoms | views::transform(toUpperM),
+		std::back_inserter(result)
+	);
+
+	return result;
+}
+
+/* ~~ Main "Rendering" Function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+RawSketch Sketch::flatten() {
+	return RawSketch ({
+		/* ... */
+		RawStroke ({{0,0}, {800,0}, {800,600}, {0,600}, {0,0}})
+	});
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

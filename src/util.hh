@@ -1,7 +1,9 @@
 #pragma once
 #include <algorithm>
+#include <ranges>
 #include <span>
 namespace ranges = std::ranges;
+namespace views = std::views;
 using namespace std::literals;
 
 namespace Util

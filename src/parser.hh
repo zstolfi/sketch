@@ -110,6 +110,7 @@ public:
 		MissingString,
 		EmptyElement,
 		UnknownElementType,
+		UnknownModifierType,
 		TickmarkOrdering,
 		MissingBracketSqL, // [
 		MissingBracketSqR, // ]
@@ -122,7 +123,6 @@ public:
 	-> std::expected<Sketch, ParseError>;
 
 private:
-
 	struct Token {
 		std::string_view string;
 		constexpr Token(std::string_view);
@@ -137,15 +137,22 @@ private:
 	using Parser = auto (std::span<const Token>)
 	/*          */ -> std::expected<T, ParseError>;
 
-	static Parser   <Sketch>                      sketchParse;
-	static Parser /*├─*/<Element>                 elementModParse;
-	static Parser /*│   ├─*/<std::vector<Stroke>> typeDataParse;
-	static Parser /*│   ├─*/<std::vector<Stroke>> typeRawParse;
-	static Parser /*│   └─*/<std::string>         typeMarkerParse;
-	/*         */ /*└───<Atom>                 */
-	static Parser /*    ├─*/<Stroke>              atomStrokeDataParse;
-	static Parser /*    ├─*/<Stroke>              atomStrokeRawParse;
-	static Parser /*    └─*/<std::string>         atomStringParse;
+	static Parser   <Sketch>                        sketchParse;
+	static Parser /*└─*/<Element>                   elementParse;
+	static Parser /*    │ */<std::vector<Stroke>>   typeDataParse;
+	static Parser /*    │ */<std::vector<Stroke>>   typeRawParse;
+	static Parser /*    │ */<std::string>           typeMarkerParse;
+	              /*    ├── <Atom> */
+	static Parser /*    │     */<Stroke>            atomStrokeDataParse;
+	static Parser /*    │     */<Stroke>            atomStrokeRawParse;
+	static Parser /*    │     */<std::string>       atomStringParse;
+	              /*    ├── <Stroke Modifier> */
+	static Parser /*    │ */<std::vector<Modifier>> modsStrokeParse;
+	static Parser /*    │     */<Mod::Affine>       modAffineParse;
+	static Parser /*    │     */<Mod::Array>        modArrayParse;
+	static Parser /*    └── <Marker Modifier> */
+	static Parser /*      */<std::vector<Modifier>> modsmarkerParse;
+	static Parser /*          */<Mod::Uppercase>    modUppercaseParse;
 
 public:
 	static auto printTokens(std::string_view) -> void;
