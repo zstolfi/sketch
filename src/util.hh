@@ -56,10 +56,10 @@ namespace Util
 
 	// Create a subspan from iterators
 	template <typename T>
-	constexpr std::span<T, std::dynamic_extent> subspan(
+	constexpr std::span<T> subspan(
 		const std::span<T>& span,
-		typename T::iterator begin,
-		typename T::iterator end
+		typename std::span<T>::iterator begin,
+		typename std::span<T>::iterator end
 	) {
 		return span.subspan(
 			std::distance(span.begin(), begin),
@@ -68,14 +68,14 @@ namespace Util
 	}
 
 	template <typename T>
-	constexpr std::span<const T, std::dynamic_extent> subspan(
+	constexpr std::span<const T> subspan(
 		const std::span<const T>& span,
-		typename T::const_iterator cbegin,
-		typename T::const_iterator cend
+		typename std::span<const T>::/*const_*/iterator begin,
+		typename std::span<const T>::/*const_*/iterator end
 	) {
 		return span.subspan(
-			std::distance(span.cbegin(), cbegin),
-			std::distance(cbegin, cend)
+			std::distance(span.begin(), begin),
+			std::distance(begin, end)
 		);
 	}
 

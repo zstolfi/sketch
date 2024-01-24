@@ -2,7 +2,6 @@
 #include "base36.hh"
 #include "util.hh"
 #include <algorithm>
-#include <cassert>
 
 // void RawSketch::sendTo(std::ostream& os) {
 // 	for (const RawStroke& s : strokes) {
@@ -31,9 +30,11 @@ Stroke::Stroke(unsigned d, std::vector<Point> p)
 Stroke Stroke::fromRaw(const RawStroke& s) {
 	Stroke self {3, {}};
 	self.points.reserve(s.points.size());
+
 	for (const RawPoint& p : s.points) {
 		self.points.push_back(Point::fromRaw(p));
 	}
+
 	return self;
 }
 
@@ -44,34 +45,31 @@ Sketch::Sketch(std::vector<Element> e)
 
 Sketch Sketch::fromRaw(const RawSketch& s) {
 	Sketch self {};
-	self.elements = {
-		Element {ElementType::Data, {}}
-	};
-	self.elements[0].atoms.reserve(s.strokes.size());
+	std::vector<Stroke> strokes {};
+	strokes.reserve(s.strokes.size());
+
 	for (const RawStroke& t : s.strokes) {
-		self.elements[0].atoms.push_back(Stroke::fromRaw(t));
+		strokes.push_back(Stroke::fromRaw(t));
 	}
+
+	self.elements = {Element {Element::Type::Data, strokes}};
 	return self;
 }
 
-Element::Element(
-	ElementType t, std::vector<Atom> a
-)
+Element::Element(Element::Type t, Atoms a)
 : type{t}, atoms{a} {}
 
-Element::Element(
-	ElementType t, std::vector<Atom> a, std::vector<Modifier> m
-)
+Element::Element(Element::Type t, Atoms a, Modifiers m)
 : type{t}, atoms{a}, modifiers{m} {}
 
 /* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-Mod::Affine::Affine() : m{1,0,0 , 0,1,0 , 0,0,1} {}
-Mod::Affine::Affine(float x) : m{x,0,0 , 0,x,0 , 0,0,x} {}
-Mod::Affine::Affine(std::array<float,9> m) : m{m} {}
+Mod::Affine::Affine() : matrix{1,0,0 , 0,1,0 , 0,0,1} {}
+Mod::Affine::Affine(float x) : matrix{x,0,0 , 0,x,0 , 0,0,x} {}
+Mod::Affine::Affine(std::array<float,9> m) : matrix{m} {}
 
-constexpr auto Mod::Affine::operator*(Affine other) -> Affine {
-	const auto& a = this->m, b = other.m;
+auto Mod::Affine::operator*(Affine other) const -> Affine {
+	const auto& a = this->matrix, b = other.matrix;
 	return Affine ({
 		// Sudoku solution for 1/22/2024:
 		a[0]*b[0] + a[1]*b[3] + a[2]*b[6],
@@ -88,52 +86,50 @@ constexpr auto Mod::Affine::operator*(Affine other) -> Affine {
 	});
 }
 
-constexpr auto Mod::Affine::operator*(Point p) -> Point {
+auto Mod::Affine::operator*(Point p) const -> Point {
 	return Point {
-		.x = m[0]*p.x + m[1]*p.y + m[2]*1.0,
-		.y = m[3]*p.x + m[4]*p.y + m[5]*1.0
+		int (matrix[0]*p.x + matrix[1]*p.y + matrix[2]),
+		int (matrix[3]*p.x + matrix[4]*p.y + matrix[5]),
 		/* .pressure */ 1.0,
 	};
 }
 
-auto Mod::Affine::operator()(std::span<const Atom> atoms) const {
-	std::vector<Atom> result {};
-	result.reserve(atoms.size());
-	assert(ranges::all_of(atoms, std::holds_alternative<Atom_t>));
+auto Mod::Affine::operator()(std::span<const Stroke> strokes) const
+-> std::vector<Stroke> {
+	std::vector<Stroke> result {};
+	result.reserve(strokes.size());
 
 	auto multiplyP = [this](Point p) -> Point {
 		return (*this) * p;
-	}
+	};
 
-	auto multiplyS = [this](const Atom_t& s) -> Atom_t {
-		return Atom_t {
-			.diameter = s.diameter;
-			.points {s.points | views::transform(multiplyP)}
+	auto multiplyS = [&](const Stroke& s) -> Stroke {
+		return Stroke {
+			s.diameter,
+			s.points | views::transform(multiplyP)
+			/*    */ | ranges::to<std::vector>(),
 		};
-	}
+	};
 
 	ranges::copy(
-		atoms | views::transform(multiplyS),
+		strokes | views::transform(multiplyS),
 		std::back_inserter(result)
 	);
 
 	return result;
 }
 
-Mod::Array::Array(Affine tf, std::size_t n) : transformation{tf}, n{n} {}
+Mod::Array::Array(std::size_t n, Affine tf) : N{n}, transformation{tf} {}
 
-auto Mod::Array::operator()(std::span<const Atom> atoms) const {
-	std::vector<Atom> result {};
-	result.reserve(n * atoms.size());
+auto Mod::Array::operator()(std::span<const Stroke> strokes) const
+-> std::vector<Stroke> {
+	std::vector<Stroke> result {};
+	result.reserve(N * strokes.size());
 
-	auto applyTf = [this](const Atom_t& s) -> Atom_t {
-		return Util::pow(transformation, i)(s);
-	}
-
-	for (std::size_t i=0; i<n; i++) {
+	for (std::size_t i=0; i<N; i++) {
 		ranges::copy(
-			atoms | views::transform(applyTf)
-			std::back_inserter(result);
+			Util::pow(transformation, i)(strokes),
+			std::back_inserter(result)
 		);
 	}
 
@@ -142,20 +138,24 @@ auto Mod::Array::operator()(std::span<const Atom> atoms) const {
 
 Mod::Uppercase::Uppercase() {}
 
-auto Mod::Uppercase::operator()(std::span<const Atom> atoms) const {
-	// std::vector<Atom> result (atoms.size(), Atom_t {});
-	std::vector<Atom> result {};
-	result.reserve(atoms.size());
-	assert(ranges::all_of(atoms, std::holds_alternative<Atom_t>));
+auto Mod::Uppercase::operator()(std::span<const Marker> markers) const
+-> std::vector<Marker> {
+	std::vector<Marker> result {};
+	result.reserve(markers.size());
 
-	auto toUpperM = [](const Atom_t& m) -> Atom_t {
-		return Atom_t {
-			.text {m.text | views::transform(std::toUpper)}
+	auto toUpperC = [](char c) -> char {
+		return ('a' <= c&&c <= 'z' ? c + ('A'-'a') : c);
+	};
+
+	auto toUpperM = [&](const Marker& m) -> Marker {
+		return Marker {
+			m.text | views::transform(toUpperC)
+			/*  */ | ranges::to<std::string>()
 		};
-	}
+	};
 
 	ranges::copy(
-		atoms | views::transform(toUpperM),
+		markers | views::transform(toUpperM),
 		std::back_inserter(result)
 	);
 
@@ -211,12 +211,12 @@ std::ostream& operator<<(std::ostream& os, const Marker& m) {
 std::ostream& operator<<(std::ostream& os, const Sketch& s) {
 	for (const Element& elem : s.elements) {
 		std::cout << "ElementTypeID: " << (int)elem.type << "\n";
-		for (const Atom& atom : elem.atoms) {
-			std::visit(
-				[&](const auto& a) { os << "\t" << a << "\n"; },
-				atom
-			);
-		}
+		std::visit(
+			[&](const auto& atoms) {
+				for (const auto& a : atoms) os << "\t" << a << "\n";
+			},
+			elem.atoms
+		);
 		os << "\n";
 	}
 	return os;

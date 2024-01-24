@@ -45,62 +45,76 @@ struct Pattern { /* ... */ };
 struct Mask    { /* ... */ };
 struct Eraser  { Mask shape; };
 struct Marker  { std::string text; };
-using  Atom    = std::variant<Stroke/*, Pattern, Eraser*/, Marker>;
+
+using Atoms = std::variant<
+	std::vector<Stroke>,
+	/*std::vector<Pattern>,*/
+	/*std::vector<Eraser>,*/
+	std::vector<Marker>
+>;
 
 /* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 namespace Mod
 {
-	using Function_t = std::vector<Atom>(std::span<const Atom>) const;
+	template <typename Atom>
+	using Call_t = std::vector<Atom>(std::span<const Atom>) const;
+
+	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	class Affine {
-		using Atom_t = Stroke;
-		std::array<float,9> m;
+		std::array<float,9> matrix;
 	public:
 		Affine();
 		Affine(float);
 		Affine(std::array<float,9>);
-		constexpr auto operator*(Affine) const -> Affine;
-		constexpr auto operator*(Point) const -> Point;
-		Function_t operator();
+		auto operator*(Affine) const -> Affine;
+		auto operator*(Point) const -> Point;
+		Call_t<Stroke> operator();
 	};
 
 	class Array {
-		using Atom_t = Stroke;
-		std::size_t n;
+		std::size_t N;
 		Affine transformation;
 	public:
 		Array(std::size_t n, Affine tf);
-		Function_t operator();
+		Call_t<Stroke> operator();
 	};
+
+	using Of_Stroke = std::variant<Affine, Array>;
+
+	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	class Uppercase {
-		using Atom_t = Marker;
 	public:
 		Uppercase();
-		Function_t operator();
+		Call_t<Marker> operator();
 	};
+
+	using Of_Marker = std::variant<Uppercase>;
 }
 
-using Modifier = std::variant<
-	Mod::Affine, Mod::Array,
-	Mod::Uppercase
+using StrokeModifiers = std::vector<Mod::Of_Stroke>;
+using MarkerModifiers = std::vector<Mod::Of_Marker>;
+using Modifiers = std::variant<
+	StrokeModifiers,
+	MarkerModifiers
 	/*, ... */
 >;
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-enum struct ElementType {
-	Data,/* Pencil, Brush, Fill, Eraser, Letters,*/
-	Marker,
-};
+/* ~~ Main Sketch Type ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 struct Element {
-	ElementType type;
-	std::vector<Atom> atoms;
-	std::vector<Modifier> modifiers;
-	Element(ElementType, std::vector<Atom>);
-	Element(ElementType, std::vector<Atom>, std::vector<Modifier>);
+	enum struct Type {
+		Data,/* Pencil, Brush, Fill, Eraser, Letters,*/
+		Marker,
+	};
+
+	Type type;
+	Atoms atoms;
+	Modifiers modifiers;
+	Element(Type, Atoms);
+	Element(Type, Atoms, Modifiers);
 };
 
 struct Sketch {

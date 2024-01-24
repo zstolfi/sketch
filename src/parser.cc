@@ -4,7 +4,7 @@
 #include <string>
 
 auto RawFormat::parse(std::string_view str)
--> std::expected<RawSketch, ParseError> {
+-> Expected<RawSketch> {
 	RawSketch result {};
 
 	for (std::size_t i=0, j=0; i<str.size(); i=j) {
@@ -31,7 +31,7 @@ auto RawFormat::parse(std::string_view str)
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::tokenize(std::string_view str)
--> std::expected<std::vector<Token>, ParseError> {
+-> Expected<std::vector<Token>> {
 	std::vector<Token> result {};
 
 	auto resultPush = [&](std::size_t i, std::size_t j) {
@@ -87,7 +87,7 @@ auto SketchFormat::tokenize(std::string_view str)
 }
 
 auto SketchFormat::parse(std::string_view str)
--> std::expected<Sketch, ParseError> {
+-> Expected<Sketch> {
 	auto tokens = tokenize(str);
 	if (!tokens) return std::unexpected(tokens.error());
 	return sketchParse(*tokens);
@@ -96,7 +96,7 @@ auto SketchFormat::parse(std::string_view str)
 /* ~~ Top-level Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::sketchParse(TokenSpan tokens)
--> std::expected<Sketch, ParseError> {
+-> Expected<Sketch> {
 	if (tokens.empty()) return std::unexpected(EmptyFile);
 	if (!Util::contains(tokens, Token {";"})) {
 		return std::unexpected(MissingSemicolon);
@@ -105,7 +105,7 @@ auto SketchFormat::sketchParse(TokenSpan tokens)
 
 	Sketch result {};
 
-	for (auto it = tokens.cbegin(); it != delimEnd; /**/) {
+	for (auto it = tokens.begin(); it != delimEnd; /**/) {
 		if (*it == Token {","}) ++it;
 		const auto delimNext = ranges::find(tokens, Token {","});
 		const auto delim = Util::min(delimNext, delimEnd);
@@ -120,24 +120,25 @@ auto SketchFormat::sketchParse(TokenSpan tokens)
 }
 
 auto SketchFormat::elementParse(TokenSpan tokens)
--> std::expected<Element, ParseError> {
+-> Expected<Element> {
 	if (tokens.empty()) return std::unexpected(EmptyElement);
-	Parser* elemParser = tokens[0] == Token {"Data"  } ? typeDataParse
-	:                    tokens[0] == Token {"Raw"   } ? typeRawParse
-	:                    tokens[0] == Token {"Marker"} ? typeMarkerParse
-	:                    /* default:                */   nullptr;
+	Parser<Element>* elemParser =
+	  tokens[0] == Token {"Data"  } ? typeDataParse
+	: tokens[0] == Token {"Raw"   } ? typeRawParse
+	: tokens[0] == Token {"Marker"} ? typeMarkerParse
+	: /* default:                */   nullptr;
 
 	if (!elemParser) return std::unexpected(UnknownElementType);
 
 	return elemParser(
-		Util::subspan(tokens, ++tokens.cbegin(), tokens.cend())
+		Util::subspan(tokens, ++tokens.begin(), tokens.end())
 	);
 }
 
 /* ~~ Element Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::typeDataParse(TokenSpan tokens)
--> std::expected<Element, ParseError> {
+-> Expected<Element> {
 	if (tokens.empty()) return std::unexpected(EmptyElement);
 	if (tokens[0] != Token {"["}) {
 		return std::unexpected(MissingBracketSqL);
@@ -146,29 +147,28 @@ auto SketchFormat::typeDataParse(TokenSpan tokens)
 		return std::unexpected(MissingBracketSqR);
 	}
 
-	Element result {ElementType::Data, {}};
+	std::vector<Stroke> strokes {};
 
-	auto it = ++tokens.cbegin();
+	auto it = ++tokens.begin();
 	const auto delimElem = ranges::find(tokens, Token {"]"});
-	result.atoms.reserve(std::distance(it, delimElem));
+	strokes.reserve(std::distance(it, delimElem));
 
 	for (; it != delimElem; ++it) {
 		auto stroke = atomStrokeDataParse({it, 1uz});
 		if (!stroke) return std::unexpected(stroke.error());
-		result.atoms.push_back(*stroke);
+		strokes.push_back(*stroke);
 	}
 
 	auto modifiers = modsStrokeParse(
-		Util::subspan(tokens, ++it, tokens.cend())
+		Util::subspan(tokens, ++it, tokens.end())
 	);
 	if (!modifiers) return std::unexpected(modifiers.error());
-	result.modifiers = std::move(*modifiers);
 
-	return result;
+	return Element {Element::Type::Data, strokes, *modifiers};
 }
 
 auto SketchFormat::typeRawParse(TokenSpan tokens)
--> std::expected<Element, ParseError> {
+-> Expected<Element> {
 	if (tokens.empty()) return std::unexpected(EmptyElement);
 
 	if (tokens[0] != Token {"["}) {
@@ -178,51 +178,45 @@ auto SketchFormat::typeRawParse(TokenSpan tokens)
 		return std::unexpected(MissingBracketSqR);
 	}
 
-	Element result {ElementType::Data, {}};
+	std::vector<Stroke> strokes {};
 
-	auto it = ++tokens.cbegin();
+	auto it = ++tokens.begin();
 	const auto delimElem = ranges::find(tokens, Token {"]"});
-	result.atoms.reserve(std::distance(it, delimElem));
+	strokes.reserve(std::distance(it, delimElem));
 
 	for (; it != delimElem; ++it) {
 		auto stroke = atomStrokeRawParse({it, 1uz});
 		if (!stroke) return std::unexpected(stroke.error());
-		result.atoms.push_back(*stroke);
+		strokes.push_back(*stroke);
 	}
 
 	auto modifiers = modsStrokeParse(
-		Util::subspan(tokens, ++it, tokens.cend())
+		Util::subspan(tokens, ++it, tokens.end())
 	);
 	if (!modifiers) return std::unexpected(modifiers.error());
-	result.modifiers = std::move(*modifiers);
 
-	return result;
+	return Element {Element::Type::Data, strokes, *modifiers};
 }
 
 auto SketchFormat::typeMarkerParse(TokenSpan tokens)
--> std::expected<Element, ParseError> {
+-> Expected<Element> {
 	if (tokens.empty()) return std::unexpected(EmptyElement);
 
-	auto string = atomStringParse({tokens.cbegin(), 1uz});
-	if (!string) return std::unexpected(string.error());
-
-	Element result {ElementType::Marker, {
-		Marker {string}
-	}};
+	auto marker = atomMarkerParse({tokens.begin(), 1uz});
+	if (!marker) return std::unexpected(marker.error());
 
 	auto modifiers = modsMarkerParse(
-		Util::subspan(tokens, ++tokens.cbegin(), tokens.cend())
+		Util::subspan(tokens, ++tokens.begin(), tokens.end())
 	);
 	if (!modifiers) return std::unexpected(modifiers.error());
-	result.modifiers = std::move(*modifiers);
 
-	return result;
+	return Element {Element::Type::Marker, std::vector {*marker}, *modifiers};
 }
 
 /* ~~ Atom Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::atomStrokeDataParse(TokenSpan tokens)
--> std::expected<Stroke, ParseError> {
+-> Expected<Stroke> {
 	if (tokens.size() != 1) return std::unexpected(AtomSize);
 
 	auto strokeStr = removeTicks(tokens[0]);
@@ -242,7 +236,7 @@ auto SketchFormat::atomStrokeDataParse(TokenSpan tokens)
 }
 
 auto SketchFormat::atomStrokeRawParse(TokenSpan tokens)
--> std::expected<Stroke, ParseError> {
+-> Expected<Stroke> {
 	if (tokens.size() != 1) return std::unexpected(AtomSize);
 
 	auto strokeStr = removeTicks(tokens[0]);
@@ -261,69 +255,74 @@ auto SketchFormat::atomStrokeRawParse(TokenSpan tokens)
 	return result;
 }
 
-auto SketchFormat::atomStringParse(TokenSpan tokens)
--> std::expected<std::string, ParseError> {
+auto SketchFormat::atomMarkerParse(TokenSpan tokens)
+-> Expected<Marker> {
 	if (tokens.size() != 1) return std::unexpected(AtomSize);
 	if (!isStringLiteral(tokens[0])) {
 		return std::unexpected(MissingString);
 	}
 
-	return std::string {++tokens[0].begin(), --tokens[0].end()};
+	return Marker {std::string {
+		std::next(tokens[0].string.begin()),
+		std::prev(tokens[0].string.end())
+	}};
 }
 
 /* ~~ Modifier Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::modsStrokeParse(TokenSpan tokens)
--> std::expected<std::vector<Modifier>, ParseError> {
-	std::vector<Modifier> result {};
+-> Expected<StrokeModifiers> {
+	StrokeModifiers result {};
 
-	while (auto it = tokens.cbegin(); it != tokens.cend(); /**/) {
+	for (auto it = tokens.begin(); it != tokens.end(); /**/) {
 		Token type = *it++;
-		Parser* modParser = (type == "Affine") ? modAffineParse
-		:                   (type == "Array" ) ? modArrayParse
-		:                   /*              */   nullptr;
+		Parser<Mod::Of_Stroke>* modParser =
+		  type == Token {"Affine"} ? modAffineParse
+		: type == Token {"Array" } ? modArrayParse
+		: /*                    */   nullptr;
 
-		if (!elemParser) return std::unexpected(UnknownModifierType);
+		if (!modParser) return std::unexpected(UnknownModifierType);
 
 		auto contents = parenParse(tokens, it);
 		if (!contents) return std::unexpected(contents.error());
 
 		auto modifier = modParser(*contents);
-		if (!modifier) return std::unexpected(modifer.error());
+		if (!modifier) return std::unexpected(modifier.error());
 
-		std::advance(it, contents.size());
-		result.modifiers.push_back(modifier);
+		std::advance(it, contents->size());
+		result.push_back(*modifier);
 	}
 
 	return result;
 }
 
 auto SketchFormat::modsMarkerParse(TokenSpan tokens)
--> std::expected<std::vector<Modifier>, ParseError> {
-	std::vector<Modifier> result {};
+-> Expected<MarkerModifiers> {
+	MarkerModifiers result {};
 
-	while (auto it = tokens.cbegin(); it != tokens.cend(); /**/) {
+	for (auto it = tokens.begin(); it != tokens.end(); /**/) {
 		Token type = *it++;
-		Parser* modParser = (type == "Uppercase") ? modAffineParse
-		:                   /*                 */   nullptr;
+		Parser<Mod::Of_Marker>* modParser =
+		  type == Token {"Uppercase"} ? modUppercaseParse
+		: /*                       */   nullptr;
 
-		if (!elemParser) return std::unexpected(UnknownModifierType);
+		if (!modParser) return std::unexpected(UnknownModifierType);
 
 		auto contents = parenParse(tokens, it);
 		if (!contents) return std::unexpected(contents.error());
 
 		auto modifier = modParser(*contents);
-		if (!modifier) return std::unexpected(modifer.error());
+		if (!modifier) return std::unexpected(modifier.error());
 
-		std::advance(it, contents.size());
-		result.modifiers.push_back(modifier);
+		std::advance(it, contents->size());
+		result.push_back(*modifier);
 	}
 
 	return result;
 }
 
 auto SketchFormat::modAffineParse(TokenSpan tokens)
--> std::expected<Mod::Affine, ParseError> {
+-> Expected<Mod::Of_Stroke> {
 	if (tokens.size() != 1+9+1) return std::unexpected(ModAffineSize);
 	if (tokens[ 0] != Token {"["}
 	||  tokens[10] != Token {"]"}) {
@@ -332,7 +331,7 @@ auto SketchFormat::modAffineParse(TokenSpan tokens)
 
 	std::array<float,9> matrix {};
 	for (std::size_t i=0; i<9; i++) {
-		auto number = floatParse(tokens[1+i]);
+		auto number = floatParse<float>(tokens[1+i]);
 		if (!number) return std::unexpected(number.error());
 		matrix[i] = *number;
 	}
@@ -341,7 +340,7 @@ auto SketchFormat::modAffineParse(TokenSpan tokens)
 }
 
 auto SketchFormat::modArrayParse(TokenSpan tokens)
--> std::expected<Mod::Array, ParseError> {
+-> Expected<Mod::Of_Stroke> {
 	if (tokens.size() != 4+9+2) return std::unexpected(ModArraySize);
 	if (tokens[ 0] != Token {"["}
 	||  tokens[ 2] != Token {"Affine"}
@@ -351,12 +350,12 @@ auto SketchFormat::modArrayParse(TokenSpan tokens)
 		return std::unexpected(MalformedModArray);
 	}
 
-	auto n = integerParse(tokens[1]);
+	auto n = integerParse<std::size_t>(tokens[1]);
 	if (!n) return std::unexpected(n.error());
 
 	std::array<float,9> matrix {};
 	for (std::size_t i=0; i<9; i++) {
-		auto number = floatParse(tokens[4+i]);
+		auto number = floatParse<float>(tokens[4+i]);
 		if (!number) return std::unexpected(number.error());
 		matrix[i] = *number;
 	}
@@ -365,7 +364,7 @@ auto SketchFormat::modArrayParse(TokenSpan tokens)
 }
 
 auto SketchFormat::modUppercaseParse(TokenSpan tokens)
--> std::expected<Mod::Uppercase, ParseError> {
+-> Expected<Mod::Of_Marker> {
 	if (tokens.size() != 2) return std::unexpected(ModUppercaseSize);
 	if (tokens[0] != Token {"["}
 	||  tokens[1] != Token {"]"}) {
@@ -377,28 +376,35 @@ auto SketchFormat::modUppercaseParse(TokenSpan tokens)
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-auto SketchFormat::isStringLiteral(Token tkn) -> bool {
+auto SketchFormat::parenParse(TokenSpan tokens, TokenIter it)
+-> Expected<TokenSpan> {
+	/* ... */
+	return Util::subspan(tokens, ++it, tokens.end());
+}
+
+auto SketchFormat::isStringLiteral(const Token tkn) -> bool {
 	return tkn.string.size() >= 2
 	&&     tkn.string.front() == '('
 	&&     tkn.string.back()  == ')';
 }
 
-static auto parenParse(TokenSpan tokens, TokenIterator it)
--> std::expected<TokenSpan, ParseError> {
-	/* ... */
-	return Util::subspan(tokens, ++it, tokens.cend());
-}
+auto SketchFormat::removeTicks(const Token tkn) -> Expected<std::string> {
+	std::string result {tkn.string};
+	constexpr char Tick = '\'';
 
-static auto integerParse(Token)
--> std::expected<int, ParseError> {
-	/* ... */
-	return int {1};
-}
+	if (!result.empty()
+	&& (result.front() == Tick
+	||  result.back() == Tick
+	||  result.contains(std::string(2, Tick)))) {
+		return std::unexpected(TickmarkOrdering);
+	}
 
-static auto floatParse(Token)
--> std::expected<float, ParseError> {
-	/* ... */
-	return float {1.0};
+	result.erase(
+		ranges::begin(ranges::remove(result, Tick)),
+		ranges::end(result)
+	);
+
+	return result;
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

@@ -46,7 +46,7 @@ bool detectEvents(AppState& s) {
 			s.cursor = {
 				ev.motion.x,
 				ev.motion.y,
-				JS::penPressure
+				JS::penPressure,
 			};
 			break;
 		case SDL_MOUSEBUTTONDOWN:

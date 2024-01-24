@@ -73,7 +73,8 @@ struct Base {
 	template <std::size_t N, std::integral T, std::integral U>
 	static auto toString(U x) {
 		std::string result (N, Alphabet[0]);
-		// TODO: account for unsigned output
+		// TODO: account for signed output
+		// prevent mistakes until then ...
 		static_assert(std::is_unsigned_v<T>);
 
 		for (std::size_t i=0; i<N; i++) {

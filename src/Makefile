@@ -1,6 +1,6 @@
 CC        = emcc
 CXX       = em++
-CXXFLAGS  = -std=c++23 -Wall
+CXXFLAGS  = -sUSE_SDL=2 -std=c++23 -Wall -ferror-limit=30
 LDFLAGS   = -sUSE_SDL=2
 FUNCTIONS = _main,_jsSetPenPressure,_jsSetClipboard,_jsGetClipboard
 
