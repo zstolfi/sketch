@@ -16,7 +16,7 @@
 
 /* ~~ .HSC Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-Point::Point(float p, int x, int y)
+Point::Point(int x, int y, float p)
 : x{x}, y{y}, pressure{p} {}
 
 Point Point::fromRaw(const RawPoint& p) {
@@ -67,11 +67,12 @@ Element::Element(
 /* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 Mod::Affine::Affine() : m{1,0,0 , 0,1,0 , 0,0,1} {}
+Mod::Affine::Affine(float x) : m{x,0,0 , 0,x,0 , 0,0,x} {}
 Mod::Affine::Affine(std::array<float,9> m) : m{m} {}
 
-auto Mod::Affine::operator*(Affine other) -> Affine {
+constexpr auto Mod::Affine::operator*(Affine other) -> Affine {
 	const auto& a = this->m, b = other.m;
-	return Affine {
+	return Affine ({
 		// Sudoku solution for 1/22/2024:
 		a[0]*b[0] + a[1]*b[3] + a[2]*b[6],
 		a[0]*b[1] + a[1]*b[4] + a[2]*b[7],
@@ -84,18 +85,18 @@ auto Mod::Affine::operator*(Affine other) -> Affine {
 		a[6]*b[0] + a[7]*b[3] + a[8]*b[6],
 		a[6]*b[1] + a[7]*b[4] + a[8]*b[7],
 		a[6]*b[2] + a[7]*b[5] + a[8]*b[8],
-	};
+	});
 }
 
-auto Mod::Affine::operator*(Point p) -> Point {
+constexpr auto Mod::Affine::operator*(Point p) -> Point {
 	return Point {
-		/* .pressure */ 1.0,
 		.x = m[0]*p.x + m[1]*p.y + m[2]*1.0,
 		.y = m[3]*p.x + m[4]*p.y + m[5]*1.0
+		/* .pressure */ 1.0,
 	};
 }
 
-auto Mod::Affine::operator()(std::span<const Atom> atoms) {
+auto Mod::Affine::operator()(std::span<const Atom> atoms) const {
 	std::vector<Atom> result {};
 	result.reserve(atoms.size());
 	assert(ranges::all_of(atoms, std::holds_alternative<Atom_t>));
@@ -121,15 +122,27 @@ auto Mod::Affine::operator()(std::span<const Atom> atoms) {
 
 Mod::Array::Array(Affine tf, std::size_t n) : transformation{tf}, n{n} {}
 
-auto Mod::Array::operator()(std::span<const Atom> atoms) {
+auto Mod::Array::operator()(std::span<const Atom> atoms) const {
 	std::vector<Atom> result {};
-	/* ... */
+	result.reserve(n * atoms.size());
+
+	auto applyTf = [this](const Atom_t& s) -> Atom_t {
+		return Util::pow(transformation, i)(s);
+	}
+
+	for (std::size_t i=0; i<n; i++) {
+		ranges::copy(
+			atoms | views::transform(applyTf)
+			std::back_inserter(result);
+		);
+	}
+
 	return result;
 }
 
 Mod::Uppercase::Uppercase() {}
 
-auto Mod::Uppercase::operator()(std::span<const Atom> atoms) {
+auto Mod::Uppercase::operator()(std::span<const Atom> atoms) const {
 	// std::vector<Atom> result (atoms.size(), Atom_t {});
 	std::vector<Atom> result {};
 	result.reserve(atoms.size());

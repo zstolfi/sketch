@@ -43,8 +43,8 @@ namespace Util
 
 	template <typename T>
 	constexpr T pow(T x, std::size_t y) {
-		T result {1};
-		while (y--) result *= x;
+		T result (1);
+		while (y--) result = result * x;
 		return result;
 	}
 
@@ -58,8 +58,8 @@ namespace Util
 	template <typename T>
 	constexpr std::span<T, std::dynamic_extent> subspan(
 		const std::span<T>& span,
-		T::iterator begin,
-		T::iterator end
+		typename T::iterator begin,
+		typename T::iterator end
 	) {
 		return span.subspan(
 			std::distance(span.begin(), begin),
@@ -70,8 +70,8 @@ namespace Util
 	template <typename T>
 	constexpr std::span<const T, std::dynamic_extent> subspan(
 		const std::span<const T>& span,
-		T::const_iterator cbegin,
-		T::const_iterator cend
+		typename T::const_iterator cbegin,
+		typename T::const_iterator cend
 	) {
 		return span.subspan(
 			std::distance(span.cbegin(), cbegin),
@@ -79,7 +79,7 @@ namespace Util
 		);
 	}
 
-	template <std::continguous_iterator T>
+	template <std::contiguous_iterator T>
 	constexpr T min(T a, T b) {
 		return (std::distance(a,b) > 0) ? a : b;
 	}

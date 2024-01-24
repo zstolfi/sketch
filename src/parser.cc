@@ -30,30 +30,17 @@ auto RawFormat::parse(std::string_view str)
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-SketchFormat::Token::Token(std::string_view str) {
-	this->string = str;
-}
-
-SketchFormat::Token::Token(std::string_view str,
-	std::size_t i, std::size_t j
-) {
-	assert(i < j);
-	this->string = str.substr(i, j-i);
-}
-
 auto SketchFormat::tokenize(std::string_view str)
 -> std::expected<std::vector<Token>, ParseError> {
 	std::vector<Token> result {};
 
 	auto resultPush = [&](std::size_t i, std::size_t j) {
-		result.emplace_back(str, i, j);
+		result.emplace_back(str.substr(i, j-i));
 	};
 
-	// Token includes types/numbers/base36.
-	// Op is any single character operator.
 	enum {
 		LineStart, Comment, Space, End,
-		Token, String, StringEnd, Op,
+		NumOrType, String, StringEnd, Operator,
 	}
 	prevState = LineStart,
 	nextState = LineStart;
@@ -74,19 +61,19 @@ auto SketchFormat::tokenize(std::string_view str)
 
 			if (isNewline(c))     return LineStart;
 			if (isWhitespace(c))  return Space;
-			if (Util::isAny(c,":[],;")) return Op;
+			if (Util::isAny(c,":[],;")) return Operator;
 			if (c == '(')         return String;
-			else /*  default:  */ return Token;
+			else /* default:   */ return NumOrType;
 		} (prevState, str[i]);
 
-		if (prevState == Op) {
+		if (prevState == Operator) {
 			resultPush(i-1, i);
 			if (str[i] == ';') return result;
 		}
 
 		if (prevState != nextState) {
-			if (nextState == Token) tokenStart = i;
-			if (prevState == Token) resultPush(tokenStart, i);
+			if (nextState == NumOrType) tokenStart = i;
+			if (prevState == NumOrType) resultPush(tokenStart, i);
 
 			if (nextState == String) tokenStart=i, parenCount=1;
 			if (nextState == StringEnd) resultPush(tokenStart, i+1);
@@ -108,7 +95,7 @@ auto SketchFormat::parse(std::string_view str)
 
 /* ~~ Top-level Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-auto SketchFormat::sketchParse(std::span<const Token> tokens)
+auto SketchFormat::sketchParse(TokenSpan tokens)
 -> std::expected<Sketch, ParseError> {
 	if (tokens.empty()) return std::unexpected(EmptyFile);
 	if (!Util::contains(tokens, Token {";"})) {
@@ -132,15 +119,15 @@ auto SketchFormat::sketchParse(std::span<const Token> tokens)
 	return result;
 }
 
-auto SketchFormat::elementParse(std::span<const Token> tokens)
+auto SketchFormat::elementParse(TokenSpan tokens)
 -> std::expected<Element, ParseError> {
 	if (tokens.empty()) return std::unexpected(EmptyElement);
 	Parser* elemParser = tokens[0] == Token {"Data"  } ? typeDataParse
 	:                    tokens[0] == Token {"Raw"   } ? typeRawParse
 	:                    tokens[0] == Token {"Marker"} ? typeMarkerParse
-	:                    /*                         */   nullptr;
+	:                    /* default:                */   nullptr;
 
-	if (elemParser == nullptr) return std::unexpected(UnknownElementType);
+	if (!elemParser) return std::unexpected(UnknownElementType);
 
 	return elemParser(
 		Util::subspan(tokens, ++tokens.cbegin(), tokens.cend())
@@ -149,7 +136,7 @@ auto SketchFormat::elementParse(std::span<const Token> tokens)
 
 /* ~~ Element Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-auto SketchFormat::typeDataParse(std::span<const Token> tokens)
+auto SketchFormat::typeDataParse(TokenSpan tokens)
 -> std::expected<Element, ParseError> {
 	if (tokens.empty()) return std::unexpected(EmptyElement);
 	if (tokens[0] != Token {"["}) {
@@ -180,7 +167,7 @@ auto SketchFormat::typeDataParse(std::span<const Token> tokens)
 	return result;
 }
 
-auto SketchFormat::typeRawParse(std::span<const Token> tokens)
+auto SketchFormat::typeRawParse(TokenSpan tokens)
 -> std::expected<Element, ParseError> {
 	if (tokens.empty()) return std::unexpected(EmptyElement);
 
@@ -212,16 +199,15 @@ auto SketchFormat::typeRawParse(std::span<const Token> tokens)
 	return result;
 }
 
-auto SketchFormat::typeMarkerParse(std::span<const Token> tokens)
+auto SketchFormat::typeMarkerParse(TokenSpan tokens)
 -> std::expected<Element, ParseError> {
 	if (tokens.empty()) return std::unexpected(EmptyElement);
-	if (tokens[0].string.front() != "("
-	||  tokens[0].string.back()  != ")") {
-		return std::unexpected(MissingString);
-	}
+
+	auto string = atomStringParse({tokens.cbegin(), 1uz});
+	if (!string) return std::unexpected(string.error());
 
 	Element result {ElementType::Marker, {
-		Marker ({++tokens[0].begin(), --tokens[0].end()})
+		Marker {string}
 	}};
 
 	auto modifiers = modsMarkerParse(
@@ -235,7 +221,7 @@ auto SketchFormat::typeMarkerParse(std::span<const Token> tokens)
 
 /* ~~ Atom Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-auto SketchFormat::atomStrokeDataParse(std::span<const Token> tokens)
+auto SketchFormat::atomStrokeDataParse(TokenSpan tokens)
 -> std::expected<Stroke, ParseError> {
 	if (tokens.size() != 1) return std::unexpected(AtomSize);
 
@@ -255,7 +241,7 @@ auto SketchFormat::atomStrokeDataParse(std::span<const Token> tokens)
 	return result;
 }
 
-auto SketchFormat::atomStrokeRawParse(std::span<const Token> tokens)
+auto SketchFormat::atomStrokeRawParse(TokenSpan tokens)
 -> std::expected<Stroke, ParseError> {
 	if (tokens.size() != 1) return std::unexpected(AtomSize);
 
@@ -275,37 +261,144 @@ auto SketchFormat::atomStrokeRawParse(std::span<const Token> tokens)
 	return result;
 }
 
-auto SketchFormat::atomStringParse(std::span<const Token> tokens)
+auto SketchFormat::atomStringParse(TokenSpan tokens)
 -> std::expected<std::string, ParseError> {
-	std::string result {};
 	if (tokens.size() != 1) return std::unexpected(AtomSize);
+	if (!isStringLiteral(tokens[0])) {
+		return std::unexpected(MissingString);
+	}
 
-	return std::string {tokens[0].string};
+	return std::string {++tokens[0].begin(), --tokens[0].end()};
 }
 
 /* ~~ Modifier Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-auto SketchFormat::modsStrokeParse(std::span<const Token> tokens)
+auto SketchFormat::modsStrokeParse(TokenSpan tokens)
 -> std::expected<std::vector<Modifier>, ParseError> {
 	std::vector<Modifier> result {};
 
-	while (auto it = tokens.cbegin(); it != tokens.cend(); ++it) {
+	while (auto it = tokens.cbegin(); it != tokens.cend(); /**/) {
 		Token type = *it++;
 		Parser* modParser = (type == "Affine") ? modAffineParse
 		:                   (type == "Array" ) ? modArrayParse
 		:                   /*              */   nullptr;
 
-		if (elemParser == nullptr) {
-			return std::unexpected(UnknownModifierType);
-		}
+		if (!elemParser) return std::unexpected(UnknownModifierType);
 
-		auto modifier = modParser(Util::subspan(tokens, /* ... */));
+		auto contents = parenParse(tokens, it);
+		if (!contents) return std::unexpected(contents.error());
+
+		auto modifier = modParser(*contents);
 		if (!modifier) return std::unexpected(modifer.error());
 
+		std::advance(it, contents.size());
 		result.modifiers.push_back(modifier);
 	}
 
 	return result;
+}
+
+auto SketchFormat::modsMarkerParse(TokenSpan tokens)
+-> std::expected<std::vector<Modifier>, ParseError> {
+	std::vector<Modifier> result {};
+
+	while (auto it = tokens.cbegin(); it != tokens.cend(); /**/) {
+		Token type = *it++;
+		Parser* modParser = (type == "Uppercase") ? modAffineParse
+		:                   /*                 */   nullptr;
+
+		if (!elemParser) return std::unexpected(UnknownModifierType);
+
+		auto contents = parenParse(tokens, it);
+		if (!contents) return std::unexpected(contents.error());
+
+		auto modifier = modParser(*contents);
+		if (!modifier) return std::unexpected(modifer.error());
+
+		std::advance(it, contents.size());
+		result.modifiers.push_back(modifier);
+	}
+
+	return result;
+}
+
+auto SketchFormat::modAffineParse(TokenSpan tokens)
+-> std::expected<Mod::Affine, ParseError> {
+	if (tokens.size() != 1+9+1) return std::unexpected(ModAffineSize);
+	if (tokens[ 0] != Token {"["}
+	||  tokens[10] != Token {"]"}) {
+		return std::unexpected(MalformedModAffine);
+	}
+
+	std::array<float,9> matrix {};
+	for (std::size_t i=0; i<9; i++) {
+		auto number = floatParse(tokens[1+i]);
+		if (!number) return std::unexpected(number.error());
+		matrix[i] = *number;
+	}
+
+	return Mod::Affine {matrix};
+}
+
+auto SketchFormat::modArrayParse(TokenSpan tokens)
+-> std::expected<Mod::Array, ParseError> {
+	if (tokens.size() != 4+9+2) return std::unexpected(ModArraySize);
+	if (tokens[ 0] != Token {"["}
+	||  tokens[ 2] != Token {"Affine"}
+	||  tokens[ 3] != Token {"["}
+	||  tokens[13] != Token {"]"}
+	||  tokens[14] != Token {"]"}) {
+		return std::unexpected(MalformedModArray);
+	}
+
+	auto n = integerParse(tokens[1]);
+	if (!n) return std::unexpected(n.error());
+
+	std::array<float,9> matrix {};
+	for (std::size_t i=0; i<9; i++) {
+		auto number = floatParse(tokens[4+i]);
+		if (!number) return std::unexpected(number.error());
+		matrix[i] = *number;
+	}
+
+	return Mod::Array {*n, matrix};
+}
+
+auto SketchFormat::modUppercaseParse(TokenSpan tokens)
+-> std::expected<Mod::Uppercase, ParseError> {
+	if (tokens.size() != 2) return std::unexpected(ModUppercaseSize);
+	if (tokens[0] != Token {"["}
+	||  tokens[1] != Token {"]"}) {
+		return std::unexpected(MalformedModUppercase);
+	}
+
+	return Mod::Uppercase {};
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+auto SketchFormat::isStringLiteral(Token tkn) -> bool {
+	return tkn.string.size() >= 2
+	&&     tkn.string.front() == '('
+	&&     tkn.string.back()  == ')';
+}
+
+static auto parenParse(TokenSpan tokens, TokenIterator it)
+-> std::expected<TokenSpan, ParseError> {
+	/* ... */
+	return Util::subspan(tokens, ++it, tokens.cend());
+}
+
+static auto integerParse(Token)
+-> std::expected<int, ParseError> {
+	/* ... */
+	return int {1};
+}
+
+static auto floatParse(Token)
+-> std::expected<float, ParseError> {
+	/* ... */
+	return float {1.0};
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

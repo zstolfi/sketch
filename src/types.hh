@@ -28,7 +28,7 @@ struct RawSketch {
 struct Point {
 	int x, y;
 	float pressure;
-	Point(float p, int x, int y);
+	Point(int x, int y, float p);
 	static Point fromRaw(const RawPoint& p);
 };
 
@@ -51,25 +51,26 @@ using  Atom    = std::variant<Stroke/*, Pattern, Eraser*/, Marker>;
 
 namespace Mod
 {
-	using Function_t = std::vector<Atom>(std::span<const Atom> atoms);
+	using Function_t = std::vector<Atom>(std::span<const Atom>) const;
 
 	class Affine {
 		using Atom_t = Stroke;
 		std::array<float,9> m;
 	public:
 		Affine();
+		Affine(float);
 		Affine(std::array<float,9>);
-		auto operator*(Affine) -> Affine;
-		auto operator*(Point) -> Point;
+		constexpr auto operator*(Affine) const -> Affine;
+		constexpr auto operator*(Point) const -> Point;
 		Function_t operator();
 	};
 
 	class Array {
 		using Atom_t = Stroke;
-		Affine transformation;
 		std::size_t n;
+		Affine transformation;
 	public:
-		Array(Affine tf, std::size_t n);
+		Array(std::size_t n, Affine tf);
 		Function_t operator();
 	};
 
@@ -78,7 +79,7 @@ namespace Mod
 	public:
 		Uppercase();
 		Function_t operator();
-	}
+	};
 }
 
 using Modifier = std::variant<

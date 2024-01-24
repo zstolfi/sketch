@@ -117,6 +117,11 @@ public:
 		AtomSize,
 		StrokeLength,
 		ForeignDigit,
+		MissingParens,
+		MismatchingParens,
+		ModAffineSize, MalformedModAffine,
+		ModArraySize, MalformedModArray,
+		ModUppercaseSize, MalformedModUppercase,
 	};
 
 	static auto parse(std::string_view)
@@ -125,17 +130,23 @@ public:
 private:
 	struct Token {
 		std::string_view string;
-		constexpr Token(std::string_view);
-		Token(std::string_view, std::size_t i, std::size_t j);
 		bool operator<=>(const Token&) const = default;
 	};
+
+	using TokenSpan = std::span<const Token>;
+	using TokenIterator = TokenSpan::/*const_*/iterator;
 
 	static auto tokenize(std::string_view)
 	-> std::expected<std::vector<Token>, ParseError>;
 
+	static auto isStringLiteral(Token) -> bool;
+	static auto parenParse(TokenSpan, TokenIterator)
+	-> std::expected<TokenSpan, ParseError>;
+	static auto integerParse(Token) -> std::expected<int, ParseError>;
+	static auto floatParse(Token) -> std::expected<float, ParseError>;
+
 	template <typename T>
-	using Parser = auto (std::span<const Token>)
-	/*          */ -> std::expected<T, ParseError>;
+	using Parser = auto (TokenSpan) -> std::expected<T, ParseError>;
 
 	static Parser   <Sketch>                        sketchParse;
 	static Parser /*└─*/<Element>                   elementParse;
@@ -150,8 +161,8 @@ private:
 	static Parser /*    │ */<std::vector<Modifier>> modsStrokeParse;
 	static Parser /*    │     */<Mod::Affine>       modAffineParse;
 	static Parser /*    │     */<Mod::Array>        modArrayParse;
-	static Parser /*    └── <Marker Modifier> */
-	static Parser /*      */<std::vector<Modifier>> modsmarkerParse;
+	              /*    └── <Marker Modifier> */
+	static Parser /*      */<std::vector<Modifier>> modsMarkerParse;
 	static Parser /*          */<Mod::Uppercase>    modUppercaseParse;
 
 public:
