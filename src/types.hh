@@ -105,7 +105,7 @@ using Modifiers = std::variant<
 /* ~~ Main Sketch Type ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 struct Element {
-	enum struct Type {
+	enum Type {
 		Data,/* Pencil, Brush, Fill, Eraser, Letters,*/
 		Marker,
 	};

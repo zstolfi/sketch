@@ -24,7 +24,7 @@ $(TARGET) : $(OBJECTS)
 
 # I have yet to figure out how to do this correctly
 webpage :
-	cp -u ./webpage/* $(OUTPUT)
+	cp ./webpage/* $(OUTPUT)
 
 .PHONY : webpage
 

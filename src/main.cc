@@ -108,13 +108,14 @@ int main() {
 		std::cout << "\n#### TOKENS ####\n";
 		SketchFormat::printTokens(inputString);
 		std::cout << "\n#### ELEMENTS ####\n";
-		// if (auto sketch = SketchFormat::parse(inputString)) {
-		// 	std::cout << *sketch << "\n";
-		// 	state.example = sketch->flatten();
-		// 	std::cout << "And as a char stream:\n";
-		// 	// accidentally re-invented the wheel here
-		// 	sketch->flatten().sendTo(std::cout);
-		// }
+		if (auto sketch = SketchFormat::parse(inputString)) {
+			std::cout << *sketch << "\n";
+			state.example = sketch->flatten();
+		}
+		else {
+			std::cout << "Parse error!\n";
+			std::cout << "Error code: " << (int)sketch.error() << "\n";
+		}
 		std::cout << "\n#### END ####\n";
 	}
 

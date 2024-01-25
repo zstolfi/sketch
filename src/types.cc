@@ -22,7 +22,8 @@ Point Point::fromRaw(const RawPoint& p) {
 	return Point {p.x, p.y, 1.0};
 }
 
-Stroke::Stroke() {}
+Stroke::Stroke()
+: diameter{3} {}
 
 Stroke::Stroke(unsigned d, std::vector<Point> p)
 : diameter{d}, points{p} {}
@@ -52,7 +53,7 @@ Sketch Sketch::fromRaw(const RawSketch& s) {
 		strokes.push_back(Stroke::fromRaw(t));
 	}
 
-	self.elements = {Element {Element::Type::Data, strokes}};
+	self.elements = {Element {Element::Data, strokes}};
 	return self;
 }
 
@@ -192,7 +193,7 @@ std::ostream& operator<<(std::ostream& os, const RawSketch& sketch) {
 
 
 std::ostream& operator<<(std::ostream& os, const Point& p) {
-	os << "(" << p.x << ", "  << p.y << ", "  << p.pressure << ")";
+	os << "(" << p.x << ", "  << p.y << ") "  << 100*p.pressure << "%";
 	return os;
 }
 

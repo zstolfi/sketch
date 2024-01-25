@@ -2,6 +2,8 @@
 #include "base36.hh"
 #include "util.hh"
 #include <string>
+#include <stack>
+#include <optional>
 
 auto RawFormat::parse(std::string_view str)
 -> Expected<RawSketch> {
@@ -107,7 +109,7 @@ auto SketchFormat::sketchParse(TokenSpan tokens)
 
 	for (auto it = tokens.begin(); it != delimEnd; /**/) {
 		if (*it == Token {","}) ++it;
-		const auto delimNext = ranges::find(tokens, Token {","});
+		const auto delimNext = std::find(it, tokens.end(), Token {","});
 		const auto delim = Util::min(delimNext, delimEnd);
 
 		auto element = elementParse(Util::subspan(tokens, it, delim));
@@ -141,10 +143,10 @@ auto SketchFormat::typeDataParse(TokenSpan tokens)
 -> Expected<Element> {
 	if (tokens.empty()) return std::unexpected(EmptyElement);
 	if (tokens[0] != Token {"["}) {
-		return std::unexpected(MissingBracketSqL);
+		return std::unexpected(MissingBracketLeft);
 	}
 	if (!Util::contains(tokens, Token {"]"})) {
-		return std::unexpected(MissingBracketSqR);
+		return std::unexpected(MissingBracketRight);
 	}
 
 	std::vector<Stroke> strokes {};
@@ -164,7 +166,7 @@ auto SketchFormat::typeDataParse(TokenSpan tokens)
 	);
 	if (!modifiers) return std::unexpected(modifiers.error());
 
-	return Element {Element::Type::Data, strokes, *modifiers};
+	return Element {Element::Data, strokes, *modifiers};
 }
 
 auto SketchFormat::typeRawParse(TokenSpan tokens)
@@ -172,10 +174,10 @@ auto SketchFormat::typeRawParse(TokenSpan tokens)
 	if (tokens.empty()) return std::unexpected(EmptyElement);
 
 	if (tokens[0] != Token {"["}) {
-		return std::unexpected(MissingBracketSqL);
+		return std::unexpected(MissingBracketLeft);
 	}
 	if (!Util::contains(tokens, Token {"]"})) {
-		return std::unexpected(MissingBracketSqR);
+		return std::unexpected(MissingBracketRight);
 	}
 
 	std::vector<Stroke> strokes {};
@@ -195,7 +197,7 @@ auto SketchFormat::typeRawParse(TokenSpan tokens)
 	);
 	if (!modifiers) return std::unexpected(modifiers.error());
 
-	return Element {Element::Type::Data, strokes, *modifiers};
+	return Element {Element::Data, strokes, *modifiers};
 }
 
 auto SketchFormat::typeMarkerParse(TokenSpan tokens)
@@ -210,7 +212,7 @@ auto SketchFormat::typeMarkerParse(TokenSpan tokens)
 	);
 	if (!modifiers) return std::unexpected(modifiers.error());
 
-	return Element {Element::Type::Marker, std::vector {*marker}, *modifiers};
+	return Element {Element::Marker, std::vector {*marker}, *modifiers};
 }
 
 /* ~~ Atom Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -230,7 +232,7 @@ auto SketchFormat::atomStrokeDataParse(TokenSpan tokens)
 		auto x = Base36::parse<3,signed>(str.substr(i+0, 3));
 		auto y = Base36::parse<3,signed>(str.substr(i+3, 3));
 		if (!x || !y) return std::unexpected(ForeignDigit);
-		result.points.emplace_back(3, *x, *y);
+		result.points.emplace_back(*x, *y, 1.0);
 	}
 	return result;
 }
@@ -250,7 +252,7 @@ auto SketchFormat::atomStrokeRawParse(TokenSpan tokens)
 		auto x = Base36::parse<2,unsigned>(str.substr(i+0, 2));
 		auto y = Base36::parse<2,unsigned>(str.substr(i+2, 2));
 		if (!x || !y) return std::unexpected(ForeignDigit);
-		result.points.emplace_back(3, *x, *y);
+		result.points.emplace_back(*x, *y, 1.0);
 	}
 	return result;
 }
@@ -378,8 +380,45 @@ auto SketchFormat::modUppercaseParse(TokenSpan tokens)
 
 auto SketchFormat::parenParse(TokenSpan tokens, TokenIter it)
 -> Expected<TokenSpan> {
-	/* ... */
-	return Util::subspan(tokens, ++it, tokens.end());
+	if (isStringLiteral(*it)) return TokenSpan {it, 1uz};
+
+	constexpr std::array parenTypes {
+		std::pair {Token {"["}, Token {"]"}},
+		/* reserved for future types */
+	};
+
+	struct Paren { std::size_t id; enum { Left, Right } side; };
+	auto parenTypeOf = [&](Token tkn) -> std::optional<Paren> {
+		for (std::size_t i=0; i<parenTypes.size(); i++) {
+			auto [left,right] = parenTypes[i];
+			if (tkn == left ) return Paren {i, Paren::Left };
+			if (tkn == right) return Paren {i, Paren::Right};
+		}
+		return std::nullopt;
+	};
+
+	if (auto t = parenTypeOf(*it); !t || t->side != Paren::Left) {
+		return std::unexpected(MissingBracketLeft);
+	}
+
+	std::stack<Paren> stack {};
+	const auto start = it;
+
+	do {
+		const auto t = parenTypeOf(*it); if (!t) continue;
+		if (t->side == Paren::Left ) stack.push(*t);
+		if (t->side == Paren::Right) {
+			if (t->id != stack.top().id) {
+				return std::unexpected(MismatchingParens);
+			}
+			stack.pop();
+		}
+	} while (!stack.empty() && ++it!=tokens.end());
+
+	TokenSpan result {Util::subspan(tokens, start, ++it)};
+
+	if (stack.empty()) return result;
+	return std::unexpected(MissingBracketRight);
 }
 
 auto SketchFormat::isStringLiteral(const Token tkn) -> bool {

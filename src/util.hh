@@ -70,8 +70,8 @@ namespace Util
 	template <typename T>
 	constexpr std::span<const T> subspan(
 		const std::span<const T>& span,
-		typename std::span<const T>::/*const_*/iterator begin,
-		typename std::span<const T>::/*const_*/iterator end
+		typename std::span<const T>::iterator begin,
+		typename std::span<const T>::iterator end
 	) {
 		return span.subspan(
 			std::distance(span.begin(), begin),
