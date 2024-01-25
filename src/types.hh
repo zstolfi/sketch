@@ -63,8 +63,8 @@ namespace Mod
 	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	class Affine {
-		std::array<float,9> matrix;
 	public:
+		std::array<float,9> matrix;
 		Affine();
 		Affine(float);
 		Affine(std::array<float,9>);
@@ -74,9 +74,9 @@ namespace Mod
 	};
 
 	class Array {
+	public:
 		std::size_t N;
 		Affine transformation;
-	public:
 		Array(std::size_t n, Affine tf);
 		Call_t<Stroke> operator();
 	};
@@ -127,13 +127,21 @@ struct Sketch {
 	RawSketch flatten();
 };
 
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-
+// Raw
 std::ostream& operator<<(std::ostream& os, const RawPoint&);
 std::ostream& operator<<(std::ostream& os, const RawStroke&);
 std::ostream& operator<<(std::ostream& os, const RawSketch&);
-
+// Atoms
 std::ostream& operator<<(std::ostream& os, const Point&);
 std::ostream& operator<<(std::ostream& os, const Stroke&);
 std::ostream& operator<<(std::ostream& os, const Marker&);
+// Modifiers
+std::ostream& operator<<(std::ostream& os, const StrokeModifiers&);
+std::ostream& operator<<(std::ostream& os, const Mod::Affine&);
+std::ostream& operator<<(std::ostream& os, const Mod::Array&);
+std::ostream& operator<<(std::ostream& os, const MarkerModifiers&);
+std::ostream& operator<<(std::ostream& os, const Mod::Uppercase&);
+
 std::ostream& operator<<(std::ostream& os, const Sketch&);

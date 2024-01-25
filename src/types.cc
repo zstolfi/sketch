@@ -198,27 +198,94 @@ std::ostream& operator<<(std::ostream& os, const Point& p) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Stroke& s) {
-	os << "width: " << s.diameter << "\t";
-	os << "points:";
-	for (Point p : s.points) os << "\t" << p;
+	os << "\tStroke:\n";
+	os << "\twidth: " << s.diameter << "\t";
+	os << "\tpoints: [\n";
+	for (Point p : s.points) os << "\t\t" << p << "\n";
+	os << "\t]";
 	return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Marker& m) {
-	os << "message: " << m.text;
+	os << "\tMarker:\n";
+	os << "\ttext: " << m.text;
 	return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Sketch& s) {
-	for (const Element& elem : s.elements) {
-		std::cout << "ElementTypeID: " << (int)elem.type << "\n";
+
+
+std::ostream& operator<<(std::ostream& os, const StrokeModifiers& mods) {
+	os << "\tStrokeModifiers: (" << mods.size() << ")\n";
+	for (std::size_t i=0; i<mods.size(); i++) {
+		os << "\t" << i << ".";
 		std::visit(
-			[&](const auto& atoms) {
-				for (const auto& a : atoms) os << "\t" << a << "\n";
+			[&os](const auto& m) {
+				os << m << "\n";
 			},
-			elem.atoms
+			mods[i]
 		);
-		os << "\n";
+	}
+	return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const MarkerModifiers& mods) {
+	os << "\tMarkerModifiers: (" << mods.size() << ")\n";
+	for (std::size_t i=0; i<mods.size(); i++) {
+		os << "\t" << i << ".";
+		std::visit(
+			[&os](const auto& m) {
+				os << m << "\n";
+			},
+			mods[i]
+		);
+	}
+	return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Mod::Affine& a) {
+	os << "\t\tAffine: [\n";
+	os << "\t\t\t[" << a.matrix[0] << "\t" << a.matrix[1] << "\t" << a.matrix[2] << "]\n"
+	   << "\t\t\t[" << a.matrix[3] << "\t" << a.matrix[4] << "\t" << a.matrix[5] << "]\n"
+	   << "\t\t\t[" << a.matrix[6] << "\t" << a.matrix[7] << "\t" << a.matrix[8] << "]\n";
+	os << "]";
+	return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Mod::Array& a) {
+	os << "\t\tArray: [\n";
+	os << "\t\t\tN = " << a.N << "\n";
+	os << "\t\t\ttf = " << a.transformation << "\n";
+	os << "]";
+	return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Mod::Uppercase& u) {
+	os << "\t\tUppercase";
+	return os;
+}
+
+
+
+std::ostream& operator<<(std::ostream& os, const Sketch& s) {
+	os << "Sketch: (" << s.elements.size() << ") elements\n";
+	for (std::size_t i=0; i<s.elements.size(); i++) {
+		os << i << ".\tElementTypeID: "
+		   << (int)s.elements[i].type << "\n";
+
+		std::visit(
+			[&os](const auto& atoms) {
+				for (const auto& a : atoms) os << a << "\n";
+			},
+			s.elements[i].atoms
+		);
+
+		const auto& mods = s.elements[i].modifiers;
+		if (std::holds_alternative<StrokeModifiers>(mods)) {
+			os << std::get<StrokeModifiers>(mods);
+		}
+		else if (std::holds_alternative<MarkerModifiers>(mods)) {
+			os << std::get<MarkerModifiers>(mods);
+		}
 	}
 	return os;
 }
