@@ -19,17 +19,6 @@ struct Base {
 		return true;
 	} ());
 
-	static auto isDigit(char c) -> bool {
-		return Util::contains(Alphabet, c);
-	}
-
-	static auto digitValue(char c) -> std::size_t {
-		return std::distance(
-			ranges::begin(Alphabet),
-			ranges::find(Alphabet, c)
-		);
-	}
-
 	// Parse signed bases in a 2's-complement style
 	// ~~~~~~ Examples: ~~~~~~
 	// B=16, N=3
@@ -64,17 +53,30 @@ struct Base {
 		return i + (n-1==max);
 	}
 
+	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+	static auto isDigit(char c) -> bool {
+		return Util::contains(Alphabet, c);
+	}
+
+	static auto digitValue(char c) -> std::size_t {
+		return std::distance(
+			ranges::begin(Alphabet),
+			ranges::find(Alphabet, c)
+		);
+	}
 
 	enum ParseError { ForeignDigit, StringSize, IntegerSize };
+
+	/* ~~ Compile-time Size ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	template <std::size_t N, std::integral T>
 	requires (N <= MaxDigitCount<T>())
 	static auto parse(std::string_view str)
 	-> std::expected<T, ParseError> {
 		if (str.size() > N) return std::unexpected(StringSize);
-		T result {};
 
+		T result {};
 		for (char c : str) {
 			if (!isDigit(c)) return std::unexpected(ForeignDigit);
 			result = B * result + digitValue(c);
@@ -96,11 +98,42 @@ struct Base {
 		}
 
 		std::string result (N, Alphabet[0]);
-
 		for (std::size_t i=0; i<N; i++) {
 			result[N-1 - i] = Alphabet[x % B];
 			x /= B;
 		}
+
+		return result;
+	}
+
+	/* ~~ Run-time Size ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+	template <std::integral T>
+	requires (std::is_unsigned_v<T>)
+	static auto parse_n(std::string_view str)
+	-> std::expected<T, ParseError> {
+		if (str.size() > MaxDigitCount<T>()) {
+			return std::unexpected(StringSize);
+		}
+
+		T result {};
+		for (char c : str) {
+			if (!isDigit(c)) return std::unexpected(ForeignDigit);
+			result = B * result + digitValue(c); 
+		}
+
+		return result;
+	}
+
+	template <std::integral T>
+	requires (std::is_unsigned_v<T>)
+	static auto toString_n(T x)
+	-> std::string {
+		std::string result {};
+		do {
+			result = Alphabet[x % B] + result;
+			x /= B;
+		} while (x > 0);
 
 		return result;
 	}
