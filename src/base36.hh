@@ -66,7 +66,7 @@ struct Base {
 		);
 	}
 
-	enum ParseError { ForeignDigit, StringSize, IntegerSize };
+	enum ParseError { ForeignDigit, StringSize/*, IntegerSize*/ };
 
 	/* ~~ Compile-time Size ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 

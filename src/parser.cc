@@ -1,5 +1,4 @@
 #include "parser.hh"
-#include "base36.hh"
 #include "util.hh"
 #include <string>
 #include <stack>
