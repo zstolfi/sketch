@@ -1,6 +1,7 @@
 #pragma once
 // Header file for ANY base (but 36 and 10 mainly)
 #include "util.hh"
+#include <limits>
 #include <expected>
 #include <string>
 #include <string_view>
@@ -9,7 +10,7 @@
 template <std::size_t B, Util::FixedString Alphabet>
 struct Base {
 	static_assert(B > 1);
-	static_assert(Alphabet.size() >= B);
+	static_assert(Alphabet.size() == B);
 	static_assert([]() {
 		// Check for digit uniqueness
 		for (char c : Alphabet) {
@@ -18,52 +19,61 @@ struct Base {
 		return true;
 	} ());
 
-	enum parseError {
-		ForeignDigit,
-		StringSize,
-	};
+	// Parse signed bases in a 2's-complement style
+	// ~~~~~~ Examples: ~~~~~~
+	// B=16, N=3
+	//     000 7ff -> +0 +2047
+	//     800 fff -> -2048 -1
+	// B=3, N=4
+	//     0000 1111 -> +0 +40
+	//     1112 2222 -> -40 -1
 
-	static auto isDigit(char c) {
-		bool result {};
-		result = Util::contains(Alphabet, c);
-		return result;
+	// Arguably odd signed bases are nicer, because each
+	// negative necesarily has a corresponding positive.
+	constexpr std::size_t topBase = Util::pow(B,N);
+	constexpr std::size_t rollover = topBase/2 + (B&1);
+
+	static auto isDigit(char c) -> bool {
+		return Util::contains(Alphabet, c);
 	}
 
-	static auto digitValue(char c) {
-		std::size_t result {};
-		result = std::distance(
+	static auto digitValue(char c) -> std::size_t {
+		return std::distance(
 			ranges::begin(Alphabet),
 			ranges::find(Alphabet, c)
 		);
-		return result;
 	}
 
-	// TODO: write EnoughBits concept for ::parse and ::toString
+	// Maximum number base B digits, which
+	// can be represented inside a type T:
+	// TODO: text with signed types
+	template <std::ingetral T>
+	constexpr auto MaxDigitCount() -> std::size_t {
+		if (std::is_same_v<T,bool>) return B == 2;
+		constexpr T max = std::numeric_limits<T>::max() / B;
+		std::size_t i = 0;
+		T n = 1;
+		while (n<max) n*=B, i++;
+		return i + (n-1==max);
+	}
+
+
+
+	enum ParseError { ForeignDigit, StringSize, IntegerSize };
 
 	template <std::size_t N, std::integral T>
+	requires (N <= MaxDigitCount<T>())
 	static auto parse(std::string_view str)
-	-> std::expected<T,parseError> {
+	-> std::expected<T, ParseError> {
+		if (str.size() > N) return std::unexpected(StringSize);
 		T result {};
-		if (str.size() != N) return std::unexpected(StringSize);
 
 		for (char c : str) {
 			if (!isDigit(c)) return std::unexpected(ForeignDigit);
 			result = B * result + digitValue(c);
 		}
-		if (std::is_signed_v<T>) {
-			// Parse signed bases in a 2's-complement style
-			constexpr T topBase = Util::pow(B,N);
-			// ~~~~~~ Examples: ~~~~~~
-			// B=16, N=3
-			//     000 7ff -> +0 +2047
-			//     800 fff -> -2048 -1
-			// B=3, N=4
-			//     0000 1111 -> +0 +40
-			//     1112 2222 -> -40 -1
 
-			// Arguably odd signed bases are nicer, because each
-			// negative necesarily has a corresponding positive.
-			constexpr T rollover = topBase/2 + (B&1);
+		if constexpr (std::is_signed_v<T>) {
 			if (result >= rollover) result -= topBase;
 		}
 
@@ -71,14 +81,18 @@ struct Base {
 	}
 
 	template <std::size_t N, std::integral T, std::integral U>
-	static auto toString(U x) {
+	requires (N <= MaxDigitCount<T>())
+	static auto toString(U x)
+	-> std::expected<std::string, ParseError> {
+		if constexpr (std::is_signed_v<T>) {
+			if (x < 0) c += topBase;
+		}
+
+		if (x >= topBase) return std::unexpected(IntegerSize);
 		std::string result (N, Alphabet[0]);
-		// TODO: account for signed output
-		// prevent mistakes until then ...
-		static_assert(std::is_unsigned_v<T>);
 
 		for (std::size_t i=0; i<N; i++) {
-			result[N-i-1] = Alphabet[x % B];
+			result[N-1 - i] = Alphabet[x % B];
 			x /= B;
 		}
 
