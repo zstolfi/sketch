@@ -19,20 +19,6 @@ struct Base {
 		return true;
 	} ());
 
-	// Parse signed bases in a 2's-complement style
-	// ~~~~~~ Examples: ~~~~~~
-	// B=16, N=3
-	//     000 7ff -> +0 +2047
-	//     800 fff -> -2048 -1
-	// B=3, N=4
-	//     0000 1111 -> +0 +40
-	//     1112 2222 -> -40 -1
-
-	// Arguably odd signed bases are nicer, because each
-	// negative necesarily has a corresponding positive.
-	constexpr std::size_t topBase = Util::pow(B,N);
-	constexpr std::size_t rollover = topBase/2 + (B&1);
-
 	static auto isDigit(char c) -> bool {
 		return Util::contains(Alphabet, c);
 	}
@@ -44,11 +30,32 @@ struct Base {
 		);
 	}
 
+	// Parse signed bases in a 2's-complement style
+	// ~~~~~~ Examples: ~~~~~~
+	// B=16, N=3
+	//     000 7ff -> +0 +2047
+	//     800 fff -> -2048 -1
+	// B=3, N=4
+	//     0000 1111 -> +0 +40
+	//     1112 2222 -> -40 -1
+
+	// Arguably odd signed bases are nicer, because each
+	// negative necesarily has a corresponding positive.
+	template <std::size_t N>
+	static constexpr auto topBase() -> std::size_t {
+		return Util::pow(B,N);
+	}
+
+	template <std::size_t N>
+	static constexpr auto rollover() -> std::size_t {
+		return topBase<N>()/2 + (B&1);
+	}
+
 	// Maximum number base B digits, which
 	// can be represented inside a type T:
 	// TODO: text with signed types
-	template <std::ingetral T>
-	constexpr auto MaxDigitCount() -> std::size_t {
+	template <std::integral T>
+	static constexpr auto MaxDigitCount() -> std::size_t {
 		if (std::is_same_v<T,bool>) return B == 2;
 		constexpr T max = std::numeric_limits<T>::max() / B;
 		std::size_t i = 0;
@@ -74,7 +81,7 @@ struct Base {
 		}
 
 		if constexpr (std::is_signed_v<T>) {
-			if (result >= rollover) result -= topBase;
+			if (result >= rollover<N>()) result -= topBase<N>();
 		}
 
 		return result;
@@ -83,12 +90,11 @@ struct Base {
 	template <std::size_t N, std::integral T, std::integral U>
 	requires (N <= MaxDigitCount<T>())
 	static auto toString(U x)
-	-> std::expected<std::string, ParseError> {
+	-> std::string {
 		if constexpr (std::is_signed_v<T>) {
-			if (x < 0) c += topBase;
+			if (x < 0) x += topBase<N>();
 		}
 
-		if (x >= topBase) return std::unexpected(IntegerSize);
 		std::string result (N, Alphabet[0]);
 
 		for (std::size_t i=0; i<N; i++) {

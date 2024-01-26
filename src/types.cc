@@ -3,16 +3,6 @@
 #include "util.hh"
 #include <algorithm>
 
-// void RawSketch::sendTo(std::ostream& os) {
-// 	for (const RawStroke& s : strokes) {
-// 		os << " ";
-// 		for (const RawPoint& p : s.points) {
-// 			os << Base36::toString<2,unsigned>(p.x)
-// 			   << Base36::toString<2,unsigned>(p.y);
-// 		}
-// 	}
-// }
-
 /* ~~ .HSC Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 Point::Point(int x, int y, float p)
@@ -172,120 +162,99 @@ RawSketch Sketch::flatten() {
 	});
 }
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-
-std::ostream& operator<<(std::ostream& os, const RawPoint& p) {
-	return os << Base36::toString<2,unsigned>(p.x)
-	/*     */ << Base36::toString<2,unsigned>(p.y);
-}
-
-std::ostream& operator<<(std::ostream& os, const RawStroke& stroke) {
-	for (const RawPoint& p : stroke.points) os << p;
-	return os;
-}
+/* ~~ Print Raw ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 std::ostream& operator<<(std::ostream& os, const RawSketch& sketch) {
-	for (const RawStroke& s : sketch.strokes) os << " " << s;
+	for (const RawStroke& s : sketch.strokes) {
+		os << " ";
+		for (const RawPoint& p : s.points) {
+			os << Base36::toString<2,unsigned>(p.x)
+			   << Base36::toString<2,unsigned>(p.y);
+		}
+	}
 	return os;
 }
 
+/* ~~ Print Sketch ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-
-std::ostream& operator<<(std::ostream& os, const Point& p) {
-	os << "(" << p.x << ", "  << p.y << ") "  << 100*p.pressure << "%";
+std::ostream& operator<<(std::ostream& os, const Sketch& sketch) {
+	for (std::size_t i = sketch.elements.size()
+	;    const Element& e : sketch.elements) {
+		os << e << (--i ? ",\n" : ";");
+	}
 	return os;
 }
+
+std::ostream& operator<<(std::ostream& os, const Element& element) {
+	switch (element.type) {
+		case Element::Data  : os << "Data "  ; break;
+		case Element::Marker: os << "Marker "; break;
+		default: std::unreachable();
+	}
+
+	std::visit(Util::Overloaded {
+		[&os](const std::vector<Stroke>& strokes) {
+			os << "[ ";
+			for (const Stroke& s : strokes) {
+				os << s << " ";
+			}
+			os << "]";
+		},
+		[&os](const std::vector<Marker>& markers) {
+			// Doesn't really make sense to have
+			// multiple markers in elements yet.
+			os << markers[0];
+		},
+	}, element.atoms);
+
+	std::visit([&os](const auto& modifiers) {
+		for (const auto& mod : modifiers) {
+			std::visit([&os](const auto& m) {
+				os << "\n\t" << m;
+			}, mod);
+		}
+	}, element.modifiers);
+
+	return os;
+}
+
+/* ~~ Print Atoms ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 std::ostream& operator<<(std::ostream& os, const Stroke& s) {
-	os << "\tStroke:\n";
-	os << "\twidth: " << s.diameter << "\t";
-	os << "\tpoints: [\n";
-	for (Point p : s.points) os << "\t\t" << p << "\n";
-	os << "\t]";
+	for (std::size_t i = s.points.size()
+	;    const Point& p : s.points) {
+		os << Base36::toString<3,signed>(p.x)
+		   << Base36::toString<3,signed>(p.y);
+		os << (--i ? "\'" : "");
+	}
+
 	return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Marker& m) {
-	os << "\tMarker:\n";
-	os << "\ttext: " << m.text;
-	return os;
+	return os << "(" << m.text << ")";
 }
 
-
-
-std::ostream& operator<<(std::ostream& os, const StrokeModifiers& mods) {
-	os << "\tStrokeModifiers: (" << mods.size() << ")\n";
-	for (std::size_t i=0; i<mods.size(); i++) {
-		os << "\t" << i << ".";
-		std::visit(
-			[&os](const auto& m) {
-				os << m << "\n";
-			},
-			mods[i]
-		);
-	}
-	return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const MarkerModifiers& mods) {
-	os << "\tMarkerModifiers: (" << mods.size() << ")\n";
-	for (std::size_t i=0; i<mods.size(); i++) {
-		os << "\t" << i << ".";
-		std::visit(
-			[&os](const auto& m) {
-				os << m << "\n";
-			},
-			mods[i]
-		);
-	}
-	return os;
-}
+/* ~~ Print Modifiers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 std::ostream& operator<<(std::ostream& os, const Mod::Affine& a) {
-	os << "\t\tAffine: [\n";
-	os << "\t\t\t[" << a.matrix[0] << "\t" << a.matrix[1] << "\t" << a.matrix[2] << "]\n"
-	   << "\t\t\t[" << a.matrix[3] << "\t" << a.matrix[4] << "\t" << a.matrix[5] << "]\n"
-	   << "\t\t\t[" << a.matrix[6] << "\t" << a.matrix[7] << "\t" << a.matrix[8] << "]\n";
+	const auto& m = a.matrix;
+	os << "Affine [ "
+	   << m[0] << " " << m[1] << " " << m[2] << " "
+	   << m[3] << " " << m[4] << " " << m[5] << " "
+	   << m[6] << " " << m[7] << " " << m[8] << " ";
 	os << "]";
 	return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Mod::Array& a) {
-	os << "\t\tArray: [\n";
-	os << "\t\t\tN = " << a.N << "\n";
-	os << "\t\t\ttf = " << a.transformation << "\n";
+	os << "Array [ "
+	   << a.N << " "
+	   << a.transformation << " ";
 	os << "]";
 	return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Mod::Uppercase& u) {
-	os << "\t\tUppercase";
-	return os;
-}
-
-
-
-std::ostream& operator<<(std::ostream& os, const Sketch& s) {
-	os << "Sketch: (" << s.elements.size() << ") elements\n";
-	for (std::size_t i=0; i<s.elements.size(); i++) {
-		os << i << ".\tElementTypeID: "
-		   << (int)s.elements[i].type << "\n";
-
-		std::visit(
-			[&os](const auto& atoms) {
-				for (const auto& a : atoms) os << a << "\n";
-			},
-			s.elements[i].atoms
-		);
-
-		const auto& mods = s.elements[i].modifiers;
-		if (std::holds_alternative<StrokeModifiers>(mods)) {
-			os << std::get<StrokeModifiers>(mods);
-		}
-		else if (std::holds_alternative<MarkerModifiers>(mods)) {
-			os << std::get<MarkerModifiers>(mods);
-		}
-	}
-	return os;
+	return os << "Uppercase [ ]";
 }

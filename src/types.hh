@@ -129,19 +129,16 @@ struct Sketch {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-// Raw
-std::ostream& operator<<(std::ostream& os, const RawPoint&);
-std::ostream& operator<<(std::ostream& os, const RawStroke&);
+// Raw Sketch
 std::ostream& operator<<(std::ostream& os, const RawSketch&);
+
+// Sketch
+std::ostream& operator<<(std::ostream& os, const Sketch&);
+std::ostream& operator<<(std::ostream& os, const Element&);
 // Atoms
-std::ostream& operator<<(std::ostream& os, const Point&);
 std::ostream& operator<<(std::ostream& os, const Stroke&);
 std::ostream& operator<<(std::ostream& os, const Marker&);
 // Modifiers
-std::ostream& operator<<(std::ostream& os, const StrokeModifiers&);
 std::ostream& operator<<(std::ostream& os, const Mod::Affine&);
 std::ostream& operator<<(std::ostream& os, const Mod::Array&);
-std::ostream& operator<<(std::ostream& os, const MarkerModifiers&);
 std::ostream& operator<<(std::ostream& os, const Mod::Uppercase&);
-
-std::ostream& operator<<(std::ostream& os, const Sketch&);
