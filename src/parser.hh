@@ -15,29 +15,78 @@
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 class ParserBase {
-protected: // Useful functions for parsing:
-	enum ParseError {
-		EmptyFile, UnbalancedString, MissingSemicolon, MissingString,
-		EmptyElement, UnknownElementType, UnknownModifierType,
-		TickmarkOrdering,
-		MissingBracketLeft, MissingBracketRight,
-		MismatchingParens, AtomSize, StrokeLength, ForeignDigit,
-		ModAffineSize, MalformedModAffine,
-		ModArraySize, MalformedModArray,
-		ModUppercaseSize, MalformedModUppercase,
-		SignCharacter, NumberSize, NumberError
+public:
+	struct SourcePos {
+		// (0,0) for an undefined row/col,
+		// all valid values are 1-indexed.
+		std::size_t row=0, col=0;
+
+		void next();
+		void next(char);
+		auto operator<=>(const SourcePos&) const = default;
+		friend std::ostream& operator<<(
+			std::ostream&, const SourcePos&
+		);
 	};
 
-	template <typename T>
-	using Expected = std::expected<T, ParseError>;
+	static constexpr auto SourcePos_unknown = SourcePos {0,0};
 
+
+protected:
 	struct Token {
 		std::string_view string;
-		bool operator<=>(const Token&) const = default;
+		SourcePos pos;
+
+		constexpr bool operator==(const Token& other) const {
+			return this->string == other.string;
+		}
+		constexpr auto operator<=>(const Token& other) const {
+			return this->string <=> other.string;
+		}
 	};
 
 	using TokenSpan = std::span<const Token>;
 	using TokenIter = TokenSpan::/*const_*/iterator;
+
+	struct ParseError {
+		enum Type {
+			EmptyFile, UnbalancedString, MissingSemicolon, MissingString,
+			EmptyElement, UnknownElementType, UnknownModifierType,
+			MissingBracketLeft, MissingBracketRight,
+			MismatchingParens, AtomSize, StrokeLength, ForeignDigit,
+			ModAffineSize, MalformedModAffine,
+			ModArraySize, MalformedModArray,
+			ModUppercaseSize, MalformedModUppercase,
+			TickmarkOrdering, SignCharacter, NumberSize, NumberError,
+		} type;
+
+		SourcePos pos;
+
+		constexpr ParseError(Type t) : type{t} {}
+		constexpr ParseError(Type t, SourcePos pos) : type{t}, pos{pos} {}
+		constexpr operator int() { return (int)type; }
+	};
+
+	static constexpr auto Unexpected(auto&& err) {
+		return std::unexpected {ParseError {err}};
+	}
+
+	static constexpr auto Unexpected(auto&& err, SourcePos pos) {
+		ParseError error {err};
+		if (error.pos == SourcePos_unknown) error.pos = pos;
+		return std::unexpected {error};
+	}
+
+	static constexpr auto Unexpected(auto&& err, Token tkn) {
+		ParseError error {err};
+		if (error.pos == SourcePos_unknown) error.pos = tkn.pos;
+		return std::unexpected {error};
+	}
+
+	using enum ParseError::Type;
+
+	template <typename T>
+	using Expected = std::expected<T, ParseError>;
 
 	static constexpr auto isWhitespace(char c) -> bool {
 		return Util::isAny(c, " \t\n\r");
@@ -116,7 +165,7 @@ protected: // Useful functions for parsing:
 				tailStr = tailStr.substr(0uz,
 					tailStr.find_last_not_of('0') + 1
 				);
-				
+
 				auto t = integerParse<std::size_t>(Token {tailStr});
 				if (!t) return std::unexpected(t.error());
 				tail = *t;

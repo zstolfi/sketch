@@ -180,9 +180,9 @@ std::ostream& operator<<(std::ostream& os, const RawSketch& sketch) {
 std::ostream& operator<<(std::ostream& os, const Sketch& sketch) {
 	for (std::size_t i = sketch.elements.size()
 	;    const Element& e : sketch.elements) {
-		os << e << (--i ? ",\n" : ";");
+		os << e << (--i ? ",\n" : "");
 	}
-	return os;
+	return os << ";";
 }
 
 std::ostream& operator<<(std::ostream& os, const Element& element) {

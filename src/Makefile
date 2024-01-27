@@ -4,7 +4,8 @@ CXXFLAGS  = -sUSE_SDL=2 -std=c++23 -Wall -ferror-limit=30
 LDFLAGS   = -sUSE_SDL=2
 FUNCTIONS = _main,_jsSetPenPressure,_jsSetClipboard,_jsGetClipboard
 
-INPUT     = ../web/input@/
+INPUT     = ../web/input/
+INPUT_EM  = ../web/input@/
 OUTPUT    = ../web/output/
 TARGET    = $(OUTPUT)sketch.js
 
@@ -12,9 +13,9 @@ SOURCES   = $(wildcard *.cc)
 OBJECTS   = $(SOURCES:.cc=.o)
 LDFLAGS  += -sEXPORTED_FUNCTIONS=$(FUNCTIONS)
 LDFLAGS  += -sEXPORTED_RUNTIME_METHODS=ccall,cwrap
-LDFLAGS  += --embed-file $(INPUT)
+LDFLAGS  += --embed-file $(INPUT_EM)
 
-all : $(SOURCES) $(TARGET) webpage
+all : $(SOURCES) webpage $(TARGET)
 
 $(TARGET) : $(OBJECTS)
 	$(CXX) $(LDFLAGS) $(OBJECTS) -o $@
@@ -24,6 +25,7 @@ $(TARGET) : $(OBJECTS)
 
 # I have yet to figure out how to do this correctly
 webpage :
+	cp ./tests/* $(INPUT)
 	cp ./webpage/* $(OUTPUT)
 
 .PHONY : webpage
