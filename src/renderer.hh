@@ -1,13 +1,11 @@
 #pragma once
 #include "types.hh"
-#include "math.hh"
+#include "graphics.hh"
 #include <functional>
 #include <span>
 
-struct Col3 { uint8_t r, g, b; };
 
 class Renderer {
-	// Possibly an mdspan in the future.
 	std::span<uint32_t> pixels;
 	const unsigned W = 800;
 	const unsigned H = 600;
@@ -18,13 +16,13 @@ class Renderer {
 
 public:
 	Renderer(
-		std::span<uint32_t>,
+		std::span<uint32_t> output,
 		unsigned W, unsigned H,
 		std::function<uint32_t(Col3)> map,
 		std::function<Col3(uint32_t)> get
 	);
 
 	void clear();
-	void displayRaw(std::span<const RawSketch::value_type>);
-	void display(std::span<const Sketch::value_type>);
+	void displayRaw(std::span<const RawStroke>);
+	// void display(std::span<const Elements>);
 };

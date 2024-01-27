@@ -8,6 +8,7 @@ using namespace std::literals;
 
 namespace Util
 {
+	// Helper struct for std::visit and std::apply
 	template <typename... Ts>
 	struct Overloaded : Ts... { using Ts::operator()...; };
 
@@ -26,6 +27,7 @@ namespace Util
 		return (compare(x,args) || ... );
 	}
 
+	// Template-argument ready string literal
 	template <std::size_t N>
 	struct FixedString {
 		char data[N];
@@ -41,6 +43,7 @@ namespace Util
 		constexpr const char* end  () const { return &data[N-1]; }
 	};
 
+	// Generic repeated multiplication
 	template <typename T>
 	constexpr T pow(T x, std::size_t y) {
 		T result (1);
@@ -67,6 +70,7 @@ namespace Util
 		);
 	}
 
+	// Create a subspan of const from iterators
 	template <typename T>
 	constexpr std::span<const T> subspan(
 		const std::span<const T>& span,
@@ -79,8 +83,19 @@ namespace Util
 		);
 	}
 
+	// Closer of 2 iterators
 	template <std::contiguous_iterator T>
 	constexpr T min(T a, T b) {
 		return (std::distance(a,b) > 0) ? a : b;
 	}
+
+	// Further of 2 iterators
+	template <std::contiguous_iterator T>
+	constexpr T max(T a, T b) {
+		return (std::distance(a,b) < 0) ? a : b;
+	}
+
+	// Character modifiers
+	constexpr char toUpper(char c) { return std::toupper(c); }
+	constexpr char toLower(char c) { return std::tolower(c); }
 }

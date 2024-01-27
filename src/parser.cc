@@ -4,21 +4,13 @@
 #include <stack>
 #include <optional>
 
-void ParserBase::SourcePos::next()
-{ col++; }
-
-void ParserBase::SourcePos::next(char c)
-{ c=='\n' ? (row++, col=0) : col++; }
-
-std::ostream& operator<<(
-	std::ostream& os, const ParserBase::SourcePos& pos
-) {
-	if (pos.row == 0) return os << "[Unknown Position]";
-	os << pos.row;
-	if (pos.col > 0) os << ":" << pos.col;
-	return os;
+void ParserBase::SourcePos::next() {
+	col++;
 }
 
+void ParserBase::SourcePos::next(char c) {
+	if (isNewline(c)) row++, col=0; else col++;
+}
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -49,17 +41,24 @@ auto RawFormat::parse(std::string_view str)
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+auto SketchFormat::parse(std::string_view str)
+-> Expected<Sketch> {
+	auto tokens = tokenize(str);
+	if (!tokens) return Unexpected(tokens.error());
+	return sketchParse(*tokens);
+}
+
 auto SketchFormat::tokenize(std::string_view str)
 -> Expected<std::vector<Token>> {
 	std::vector<Token> result {};
 	SourcePos pos {1,1};
 
 	auto resultPush = [&](std::size_t i, std::size_t j) {
-		// TODO: Improve token pos precision.
+		// TODO: Improve token pos accuracy.
 		result.emplace_back(str.substr(i, j-i), pos);
 	};
 
-	enum {
+	enum State {
 		LineStart, Comment, Space, End,
 		NumOrType, String, StringEnd, Operator,
 	}
@@ -82,11 +81,11 @@ auto SketchFormat::tokenize(std::string_view str)
 				return String;
 			}
 
-			if (isNewline(c))     return LineStart;
-			if (isWhitespace(c))  return Space;
-			if (Util::isAny(c,":[],;")) return Operator;
-			if (c == '(')         return String;
-			else /* default:   */ return NumOrType;
+			if (isNewline(c))          return LineStart;
+			if (isWhitespace(c))       return Space;
+			if (Util::isAny(c,"[],;")) return Operator;
+			if (c == '(')              return String;
+			else /* default:        */ return NumOrType;
 		} (prevState, str[i]);
 
 
@@ -108,13 +107,6 @@ auto SketchFormat::tokenize(std::string_view str)
 	}
 
 	return result;
-}
-
-auto SketchFormat::parse(std::string_view str)
--> Expected<Sketch> {
-	auto tokens = tokenize(str);
-	if (!tokens) return Unexpected(tokens.error());
-	return sketchParse(*tokens);
 }
 
 /* ~~ Top-level Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -249,7 +241,6 @@ auto SketchFormat::atomStrokeDataParse(TokenSpan tokens)
 
 	Stroke result {};
 
-	// TODO: allow capital letters
 	if (str.size()%6 != 0) return Unexpected(StrokeLength, tokens[0]);
 	for (std::size_t i=0; i<str.size(); i+=6) {
 		auto x = Base36::parse<3,signed>(str.substr(i+0, 3));
@@ -354,9 +345,9 @@ auto SketchFormat::modAffineParse(TokenSpan tokens)
 		return Unexpected(MalformedModAffine, tokens[0]);
 	}
 
-	std::array<float,9> matrix {};
+	std::array<double,9> matrix {};
 	for (std::size_t i=0; i<9; i++) {
-		auto number = floatParse<float>(tokens[1+i]);
+		auto number = floatParse<double>(tokens[1+i]);
 		if (!number) return Unexpected(number.error(), tokens[1+i]);
 		matrix[i] = *number;
 	}
@@ -378,9 +369,9 @@ auto SketchFormat::modArrayParse(TokenSpan tokens)
 	auto n = integerParse<std::size_t>(tokens[1]);
 	if (!n) return Unexpected(n.error(), tokens[1]);
 
-	std::array<float,9> matrix {};
+	std::array<double,9> matrix {};
 	for (std::size_t i=0; i<9; i++) {
-		auto number = floatParse<float>(tokens[4+i]);
+		auto number = floatParse<double>(tokens[4+i]);
 		if (!number) return Unexpected(number.error(), tokens[4+i]);
 		matrix[i] = *number;
 	}
@@ -399,7 +390,7 @@ auto SketchFormat::modUppercaseParse(TokenSpan tokens)
 	return Mod::Uppercase {};
 }
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ Helper Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::parenParse(TokenSpan tokens, TokenIter it)
 -> Expected<TokenSpan> {
@@ -466,10 +457,26 @@ auto SketchFormat::removeTicks(const Token tkn) -> Expected<std::string> {
 		ranges::end(result)
 	);
 
+	auto isNotTick = [](char c) { return c != Tick; };
+
+	result = result
+		| views::filter(isNotTick)
+		| views::transform(Util::toLower)
+		| ranges::to<std::string>();
+
 	return result;
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+std::ostream& operator<<(
+	std::ostream& os, const ParserBase::SourcePos& pos
+) {
+	if (pos.row == 0) return os << "[Unknown Position]";
+	os << pos.row;
+	if (pos.col > 0) os << ":" << pos.col;
+	return os;
+}
 
 auto SketchFormat::printTokens(std::string_view str) -> void {
 	auto tokens = tokenize(str);
@@ -480,6 +487,7 @@ auto SketchFormat::printTokens(std::string_view str) -> void {
 	}
 	else {
 		std::cout << "\t!! Invalid tokens input !!\n";
-		std::cout << "\tError code: " << (int)tokens.error() << "\n";
+		std::cout << "\tError code:  " << (int)tokens.error() << "\n";
+		std::cout << "\tAt Position: " << tokens.error().pos << "\n";
 	}
 }

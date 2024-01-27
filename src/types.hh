@@ -1,11 +1,9 @@
 #pragma once
 #include <iostream>
-#include <sstream>
-#include <vector>
-#include <list>
-#include <span>
 #include <string>
 #include <variant>
+#include <vector>
+#include <span>
 
 /* ~~ .sketch Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -18,17 +16,15 @@ struct RawStroke {
 };
 
 struct RawSketch {
-	using value_type = RawStroke;
 	std::vector<RawStroke> strokes;
-	void sendTo(std::ostream& os);
 };
 
-/* ~~ .HSC Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ .HSC Data Types (Atoms) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 struct Point {
 	int x, y;
-	float pressure;
-	Point(int x, int y, float p);
+	double pressure;
+	Point(int x, int y, double p);
 	static Point fromRaw(const RawPoint& p);
 };
 
@@ -36,14 +32,14 @@ struct Stroke {
 	unsigned diameter;
 	std::vector<Point> points;
 	Stroke();
+	Stroke(std::vector<Point> p);
 	Stroke(unsigned d, std::vector<Point> p);
 	static Stroke fromRaw(const RawStroke& s);
 };
 
-// All default-constructible
-struct Pattern { /* ... */ };
-struct Mask    { /* ... */ };
-struct Eraser  { Mask shape; };
+// struct Pattern { /* ... */ };
+// struct Mask    { /* ... */ };
+// struct Eraser  { Mask shape; };
 struct Marker  { std::string text; };
 
 using Atoms = std::variant<
@@ -60,14 +56,14 @@ namespace Mod
 	template <typename Atom>
 	using Call_t = std::vector<Atom>(std::span<const Atom>) const;
 
-	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+	/* ~~ Stroke Modifiers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	class Affine {
 	public:
-		std::array<float,9> matrix;
+		std::array<double,9> matrix;
 		Affine();
-		Affine(float);
-		Affine(std::array<float,9>);
+		Affine(double);
+		Affine(std::array<double,9>);
 		auto operator*(Affine) const -> Affine;
 		auto operator*(Point) const -> Point;
 		Call_t<Stroke> operator();
@@ -83,7 +79,7 @@ namespace Mod
 
 	using Of_Stroke = std::variant<Affine, Array>;
 
-	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+	/* ~~ Marker Modifiers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	class Uppercase {
 	public:
@@ -118,16 +114,14 @@ struct Element {
 };
 
 struct Sketch {
-	using value_type = Element;
 	std::vector<Element> elements;
 	Sketch();
 	Sketch(std::vector<Element>);
 	static Sketch fromRaw(const RawSketch&);
-
-	RawSketch flatten();
+	auto render() -> RawSketch;
 };
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ Print Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 // Raw Sketch
 std::ostream& operator<<(std::ostream& os, const RawSketch&);

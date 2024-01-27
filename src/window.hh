@@ -1,5 +1,6 @@
 #pragma once
 #include <SDL2/SDL.h>
+#include <string_view>
 #include <span>
 #include <cctype>
 
@@ -9,7 +10,7 @@ class Window {
 	SDL_Surface* sdlSurface;
 
 public:
-	Window(const char* title, unsigned W, unsigned H);
+	Window(std::string_view title, unsigned W, unsigned H);
 	~Window();
 
 	// SDL weirdly uses pointers to pixel formats
@@ -24,6 +25,6 @@ public:
 	Dimension size  () const;
 
 	// Setters
-	void setSize  (Dimension d);
+	void setSize  (Dimension);
 	void updatePixels();
 };

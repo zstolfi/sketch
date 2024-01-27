@@ -1,6 +1,8 @@
 #pragma once
-// Header file for browser features we have to rely on
-// Javascript for which SDL doesn't currently support.
+#include <string_view>
+
+// Header file for browser features that Javascript
+// supplies. (Which SDL doesn't currently support).
 
 namespace JS
 {
@@ -11,11 +13,13 @@ namespace JS
 	extern bool mouseInFocus;
 	void listenForMouseFocus();
 
-	// XXX: keeps resetting to the empty string
-	extern const char* clipboard;
+	// TODO: keeps resetting to the empty string
+	extern std::string_view clipboard;
 	void copy();
 	void paste();
 };
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 extern "C"
 {

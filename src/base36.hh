@@ -1,11 +1,12 @@
 #pragma once
-// Header file for ANY base (but 36 and 10 mainly)
 #include "util.hh"
 #include <limits>
 #include <expected>
 #include <string>
 #include <string_view>
 #include <concepts>
+
+// Header file for ANY base (but 36 and 10 mainly)
 
 template <std::size_t B, Util::FixedString Alphabet>
 struct Base {
@@ -19,6 +20,8 @@ struct Base {
 		return true;
 	} ());
 
+	/* ~~ Metafunctions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 	// Parse signed bases in a 2's-complement style
 	// ~~~~~~ Examples: ~~~~~~
 	// B=16, N=3
@@ -31,29 +34,35 @@ struct Base {
 	// Arguably odd signed bases are nicer, because each
 	// negative necesarily has a corresponding positive.
 	template <std::size_t N>
-	static constexpr auto topBase() -> std::size_t {
+	static constexpr auto capacity() -> std::size_t {
 		return Util::pow(B,N);
 	}
 
 	template <std::size_t N>
 	static constexpr auto rollover() -> std::size_t {
-		return topBase<N>()/2 + (B&1);
+		return capacity<N>()/2 + (B&1);
 	}
 
 	// Maximum number base B digits, which
 	// can be represented inside a type T:
-	// TODO: text with signed types
 	template <std::integral T>
 	static constexpr auto MaxDigitCount() -> std::size_t {
-		if (std::is_same_v<T,bool>) return B == 2;
-		constexpr T max = std::numeric_limits<T>::max() / B;
+		using U = std::make_unsigned_t<T>;
+		constexpr U max = std::numeric_limits<U>::max() / B;
 		std::size_t i = 0;
-		T n = 1;
+		U n = 1;
 		while (n<max) n*=B, i++;
 		return i + (n-1==max);
 	}
 
-	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+	template <>
+	static constexpr auto MaxDigitCount<bool>() -> std::size_t {
+		return B == 2;
+	}
+
+	/* ~~ Member Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+	enum ParseError { ForeignDigit, StringSize/*, IntegerSize*/ };
 
 	static auto isDigit(char c) -> bool {
 		return Util::contains(Alphabet, c);
@@ -66,9 +75,7 @@ struct Base {
 		);
 	}
 
-	enum ParseError { ForeignDigit, StringSize/*, IntegerSize*/ };
-
-	/* ~~ Compile-time Size ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+	// Compiletime Size:
 
 	template <std::size_t N, std::integral T>
 	requires (N <= MaxDigitCount<T>())
@@ -83,7 +90,7 @@ struct Base {
 		}
 
 		if constexpr (std::is_signed_v<T>) {
-			if (result >= rollover<N>()) result -= topBase<N>();
+			if (result >= rollover<N>()) result -= capacity<N>();
 		}
 
 		return result;
@@ -94,7 +101,7 @@ struct Base {
 	static auto toString(U x)
 	-> std::string {
 		if constexpr (std::is_signed_v<T>) {
-			if (x < 0) x += topBase<N>();
+			if (x < 0) x += capacity<N>();
 		}
 
 		std::string result (N, Alphabet[0]);
@@ -106,7 +113,7 @@ struct Base {
 		return result;
 	}
 
-	/* ~~ Run-time Size ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+	// Runtime Size:
 
 	template <std::integral T>
 	requires (std::is_unsigned_v<T>)

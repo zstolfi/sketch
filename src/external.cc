@@ -3,7 +3,7 @@
 #include <iostream>
 
 float JS::penPressure = 1.0;
-const char* JS::clipboard = "";
+std::string_view JS::clipboard = "";
 
 // https://discourse.libsdl.org/t/get-tablet-stylus-pressure/35319/2
 void JS::listenForPenPressure() {
@@ -35,19 +35,18 @@ void JS::paste() {
 	);
 }
 
-extern "C"
-{
-	void jsSetPenPressure(float p) {
-		JS::penPressure = p;
-	}
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-	void jsSetClipboard(const char* str) {
-		std::cout << "clipbaord set to \"" << str << "\"\n";
-		JS::clipboard = str;
-	}
+void jsSetPenPressure(float p) {
+	JS::penPressure = p;
+}
 
-	const char* jsGetClipboard() {
-		std::cout << "\"" << JS::clipboard << "\" read from clipboard.\n";
-		return JS::clipboard;
-	}
+void jsSetClipboard(const char* str) {
+	std::cout << "clipbaord set to \"" << str << "\"\n";
+	JS::clipboard = str;
+}
+
+const char* jsGetClipboard() {
+	std::cout << "\"" << JS::clipboard << "\" read from clipboard.\n";
+	return JS::clipboard.data();
 }

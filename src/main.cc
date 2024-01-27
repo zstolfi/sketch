@@ -8,8 +8,6 @@
 #include "renderer.hh"
 #include "parser.hh"
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
 struct AppState {
 	bool quit = false;
 	
@@ -38,37 +36,37 @@ bool detectEvents(AppState& s) {
 	bool input = false;
 	for (SDL_Event ev; SDL_PollEvent(&ev); input=true)
 	switch (ev.type) {
-		if (SDL_GetMouseFocus() == nullptr) s.cursor = std::nullopt;
-		case SDL_QUIT:
+	// if (SDL_GetMouseFocus() == nullptr) s.cursor = std::nullopt;
+	case SDL_QUIT:
+		s.quit = true;
+		break;
+	case SDL_MOUSEMOTION:
+		s.cursor = {
+			ev.motion.x,
+			ev.motion.y,
+			JS::penPressure,
+		};
+		break;
+	case SDL_MOUSEBUTTONDOWN:
+		s.pressed = true;
+		s.cursor->pressure = JS::penPressure;
+		break;
+	case SDL_MOUSEBUTTONUP:
+		s.pressed = false;
+		s.cursor->pressure = 0.0;
+		break;
+	case SDL_KEYDOWN:
+		switch (ev.key.keysym.sym) {
+		case SDLK_ESCAPE:
 			s.quit = true;
 			break;
-		case SDL_MOUSEMOTION:
-			s.cursor = {
-				ev.motion.x,
-				ev.motion.y,
-				JS::penPressure,
-			};
+		case SDLK_c: // TODO: figure out modifier keys
+			JS::copy();
 			break;
-		case SDL_MOUSEBUTTONDOWN:
-			s.pressed = true;
-			s.cursor->pressure = JS::penPressure;
+		case SDLK_v:
+			JS::paste();
 			break;
-		case SDL_MOUSEBUTTONUP:
-			s.pressed = false;
-			s.cursor->pressure = 0.0;
-			break;
-		case SDL_KEYDOWN:
-			switch (ev.key.keysym.sym) {
-				case SDLK_ESCAPE:
-					s.quit = true;
-					break;
-				case SDLK_c: // TODO: figure out modifier keys
-					JS::copy();
-					break;
-				case SDLK_v:
-					JS::paste();
-					break;
-			} break;
+		} break;
 	}
 	return input;
 }
@@ -84,7 +82,7 @@ int main() {
 	std::string title = "[Offline] Sketch Client";
 	if (config) std::getline(config, title);
 
-	static Window window {title.c_str(), 800, 600};
+	static Window window {title, 800, 600};
 	static AppState state {};
 	static Renderer renderer {
 		window.pixels, window.width(), window.height(),
@@ -110,7 +108,7 @@ int main() {
 		std::cout << "\n#### ELEMENTS ####\n";
 		if (auto sketch = SketchFormat::parse(inputString)) {
 			std::cout << *sketch << "\n";
-			state.example = sketch->flatten();
+			state.example = sketch->render();
 		}
 		else {
 			std::cout << "Parse error!\n";

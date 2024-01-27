@@ -12,8 +12,6 @@
 #include <expected>
 #include <span>
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
 class ParserBase {
 public:
 	struct SourcePos {
@@ -24,13 +22,10 @@ public:
 		void next();
 		void next(char);
 		auto operator<=>(const SourcePos&) const = default;
-		friend std::ostream& operator<<(
-			std::ostream&, const SourcePos&
-		);
+		friend std::ostream& operator<<(std::ostream&, const SourcePos&);
 	};
 
 	static constexpr auto SourcePos_unknown = SourcePos {0,0};
-
 
 protected:
 	struct Token {
@@ -67,6 +62,13 @@ protected:
 		constexpr operator int() { return (int)type; }
 	};
 
+	using enum ParseError::Type;
+
+	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+	template <typename T>
+	using Expected = std::expected<T, ParseError>;
+
 	static constexpr auto Unexpected(auto&& err) {
 		return std::unexpected {ParseError {err}};
 	}
@@ -83,10 +85,14 @@ protected:
 		return std::unexpected {error};
 	}
 
-	using enum ParseError::Type;
+	template <typename Base>
+	static constexpr auto mapError(Base::ParseError err) -> ParseError {
+		if (err == Base::ForeignDigit) return ForeignDigit;
+		if (err == Base::StringSize)   return NumberSize;
+		return NumberError;
+	};
 
-	template <typename T>
-	using Expected = std::expected<T, ParseError>;
+	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	static constexpr auto isWhitespace(char c) -> bool {
 		return Util::isAny(c, " \t\n\r");
@@ -97,13 +103,6 @@ protected:
 	}
 
 	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-	template <typename Base>
-	static constexpr auto mapError(Base::ParseError err) -> ParseError {
-		if (err == Base::ForeignDigit) return ForeignDigit;
-		if (err == Base::StringSize  ) return NumberSize;
-		return NumberError;
-	};
 
 	template <std::integral T>
 	static auto integerParse(const Token tkn) -> Expected<T> {
@@ -185,7 +184,7 @@ class RawFormat : public ParserBase {
 public:
 	static auto parse(std::string_view) -> Expected<RawSketch>;
 
-	// Maybe add a trivial RawFormat tokenizer
+	// TODO: Maybe add a trivial RawFormat tokenizer.
 };
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
