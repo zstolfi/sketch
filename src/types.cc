@@ -111,7 +111,7 @@ auto Mod::Array::operator()(std::span<const Stroke> strokes) const
 		return Util::pow(transformation, i)(strokes);
 	};
 
-	return views::iota(N)
+	return views::iota(0uz, N)
 		| views::transform(applyMatPower)
 		| views::join // Labeled under "experimental-library".
 		| ranges::to<std::vector>();

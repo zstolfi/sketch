@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <string_view>
 #include <ranges>
 #include <span>
 namespace ranges = std::ranges;
