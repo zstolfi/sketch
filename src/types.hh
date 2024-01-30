@@ -5,7 +5,7 @@
 #include <vector>
 #include <span>
 
-/* ~~ .sketch Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ .sketch Compatible Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 struct RawPoint  {
 	int x, y;
@@ -19,7 +19,7 @@ struct RawSketch {
 	std::vector<RawStroke> strokes;
 };
 
-/* ~~ .HSC Data Types (Atoms) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ .HSC Specific Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 struct Point {
 	int x, y;
@@ -32,7 +32,6 @@ struct Stroke {
 	unsigned diameter;
 	std::vector<Point> points;
 	Stroke();
-	Stroke(std::vector<Point> p);
 	Stroke(unsigned d, std::vector<Point> p);
 	static Stroke fromRaw(const RawStroke& s);
 };
@@ -44,6 +43,7 @@ struct Marker  { std::string text; };
 
 using Atoms = std::variant<
 	std::vector<Stroke>,
+	std::vector<RawStroke>,
 	/*std::vector<Pattern>,*/
 	/*std::vector<Eraser>,*/
 	std::vector<Marker>
@@ -102,7 +102,8 @@ using Modifiers = std::variant<
 
 struct Element {
 	enum Type {
-		Data,/* Pencil, Brush, Fill, Eraser, Letters,*/
+		Brush, Data,
+		/* Pencil, Fill, Eraser, Letters,*/
 		Marker,
 	};
 
@@ -131,6 +132,7 @@ std::ostream& operator<<(std::ostream& os, const Sketch&);
 std::ostream& operator<<(std::ostream& os, const Element&);
 // Atoms
 std::ostream& operator<<(std::ostream& os, const Stroke&);
+std::ostream& operator<<(std::ostream& os, const RawStroke&);
 std::ostream& operator<<(std::ostream& os, const Marker&);
 // Modifiers
 std::ostream& operator<<(std::ostream& os, const Mod::Affine&);

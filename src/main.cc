@@ -112,7 +112,7 @@ int main() {
 		}
 		else {
 			std::cout << "Parse error!\n";
-			std::cout << "Error code: " << (int)sketch.error() << "\n";
+			std::cout << "Error code: " << int(sketch.error()) << "\n";
 			std::cout << "At Position: " << sketch.error().pos << "\n";
 		}
 		std::cout << "\n#### END ####\n";

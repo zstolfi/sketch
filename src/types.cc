@@ -15,14 +15,11 @@ Point Point::fromRaw(const RawPoint& p) {
 Stroke::Stroke()
 : diameter{3} {}
 
-Stroke::Stroke(std::vector<Point> p)
-: diameter{3}, points{p} {}
-
 Stroke::Stroke(unsigned d, std::vector<Point> p)
 : diameter{d}, points{p} {}
 
 Stroke Stroke::fromRaw(const RawStroke& raw) {
-	return Stroke {
+	return Stroke {3,
 		raw.points
 		| views::transform(Point::fromRaw)
 		| ranges::to<std::vector>()
@@ -77,8 +74,8 @@ auto Mod::Affine::operator*(Affine other) const -> Affine {
 
 auto Mod::Affine::operator*(Point p) const -> Point {
 	return Point {
-		(int)(matrix[0]*p.x + matrix[1]*p.y + matrix[2]),
-		(int)(matrix[3]*p.x + matrix[4]*p.y + matrix[5]),
+		int(matrix[0]*p.x + matrix[1]*p.y + matrix[2]),
+		int(matrix[3]*p.x + matrix[4]*p.y + matrix[5]),
 		/* .pressure */ 1.0,
 	};
 }
@@ -168,6 +165,7 @@ std::ostream& operator<<(std::ostream& os, const Sketch& sketch) {
 
 std::ostream& operator<<(std::ostream& os, const Element& element) {
 	switch (element.type) {
+		case Element::Brush : os << "Brush " ; break;
 		case Element::Data  : os << "Data "  ; break;
 		case Element::Marker: os << "Marker "; break;
 		default: std::unreachable();
@@ -177,6 +175,13 @@ std::ostream& operator<<(std::ostream& os, const Element& element) {
 		[&os](const std::vector<Stroke>& strokes) {
 			os << "[ ";
 			for (const Stroke& s : strokes) {
+				os << s << " ";
+			}
+			os << "]";
+		},
+		[&os](const std::vector<RawStroke>& raw) {
+			os << "[ ";
+			for (const RawStroke& s : raw) {
 				os << s << " ";
 			}
 			os << "]";
@@ -202,13 +207,24 @@ std::ostream& operator<<(std::ostream& os, const Element& element) {
 /* ~~ Print Atoms ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 std::ostream& operator<<(std::ostream& os, const Stroke& s) {
+	os << Base36::toString<2,unsigned>(s.diameter) << " ";
 	for (std::size_t i = s.points.size()
 	;    const Point& p : s.points) {
 		os << Base36::toString<3,signed>(p.x)
-		   << Base36::toString<3,signed>(p.y);
-		os << (--i ? "\'" : "");
+		   << Base36::toString<3,signed>(p.y)
+		   << "\'";
+		unsigned pressure = (36*36-1) * p.pressure;
+		os << Base36::toString<2,unsigned>(pressure)
+		   << (--i ? "\'" : "");
 	}
+	return os;
+}
 
+std::ostream& operator<<(std::ostream& os, const RawStroke& s) {
+	for (const RawPoint& p : s.points) {
+		os << Base36::toString<2,unsigned>(p.x)
+		   << Base36::toString<2,unsigned>(p.y);
+	}
 	return os;
 }
 

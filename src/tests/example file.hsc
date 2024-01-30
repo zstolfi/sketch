@@ -36,8 +36,8 @@ Raw [ 0000m800m8go00go0000 ],
 % (The last two denote that point's pressure.)
 % (00, zz) -> (0.0, 1.0)
 
-%         dd xxxyyy pp xxxyyy pp etc...
-% Brush [ 0a 06m01g'k0'06m01r'l5'06l038'k8'06g04g'e0 0a 06m035'a0'06v033'a0'07d030'a0'08902s'a0 0a 08e01d'k0'08e01o'k0'08f01z'k0'08d047'k0'08b04n'k0 ],
+%       dd xxxyyy pp xxxyyy pp etc...
+Brush [ 0a 06m01g'k0'06m01r'l5'06l038'k8'06g04g'e0 0a 06m035'a0'06v033'a0'07d030'a0'08902s'a0 0a 08e01d'k0'08e01o'k0'08f01z'k0'08d047'k0'08b04n'k0 ],
 
 % Transformations are allowed to be applied to elements.
 % Here a square is translated and rotated by 30° clockwise.

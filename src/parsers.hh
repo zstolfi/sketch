@@ -32,19 +32,21 @@ private:
 	-> Expected<TokenSpan>;
 
 	static auto isStringLiteral(const Token) -> bool;
-	static auto removeTicks(const Token) -> Expected<std::string>;
+	static auto removeTicks(std::string_view) -> Expected<std::string>;
 
 	template <typename T>
 	using Parser = auto (TokenSpan) -> Expected<T>;
 
 	static Parser   <Sketch>                        sketchParse;
 	static Parser /*└─*/<Element>                   elementParse;
+	static Parser /*    │ */<Element>               typeBrushParse;
 	static Parser /*    │ */<Element>               typeDataParse;
 	static Parser /*    │ */<Element>               typeRawParse;
 	static Parser /*    │ */<Element>               typeMarkerParse;
 	              /*    ├── <Atoms> */
-	static Parser /*    │     */<Stroke>            atomStrokeDataParse;
-	static Parser /*    │     */<Stroke>            atomStrokeRawParse;
+	static Parser /*    │     */<Stroke>            atomStrokeBrushParse;
+	static Parser /*    │     */<RawStroke>         atomStrokeDataParse;
+	static Parser /*    │     */<RawStroke>         atomStrokeRawParse;
 	static Parser /*    │     */<Marker>            atomMarkerParse;
 	static Parser /*    ├─*/<StrokeModifiers>       modsStrokeParse;
 	static Parser /*    │     */<Mod::Of_Stroke>    modAffineParse;

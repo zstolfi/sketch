@@ -12,6 +12,7 @@ protected:
 	enum ErrorType {
 		EmptyFile, UnbalancedString, MissingSemicolon, MissingString,
 		EmptyElement, UnknownElementType, UnknownModifierType,
+		ElementBrushSize,
 		MissingBracketLeft, MissingBracketRight,
 		MismatchingParens, AtomSize, StrokeLength, ForeignDigit,
 		ModAffineSize, MalformedModAffine,
@@ -57,7 +58,7 @@ protected:
 		SourcePos pos;
 		constexpr ParseError(Type t) : type{t} {}
 		constexpr ParseError(Type t, SourcePos pos) : type{t}, pos{pos} {}
-		constexpr operator int() { return (int)type; }
+		constexpr operator int() { return int(type); }
 	};
 
 	using enum ParseError::Type;
