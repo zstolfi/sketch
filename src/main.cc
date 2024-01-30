@@ -6,7 +6,7 @@
 #include "window.hh"
 #include "external.hh"
 #include "renderer.hh"
-#include "parser.hh"
+#include "parsers.hh"
 
 struct AppState {
 	bool quit = false;
