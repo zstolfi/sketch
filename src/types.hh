@@ -25,15 +25,24 @@ struct Point {
 	int x, y;
 	double pressure;
 	Point(int x, int y, double p);
-	static Point fromRaw(const RawPoint& p);
 };
 
 struct Stroke {
 	unsigned diameter;
 	std::vector<Point> points;
 	Stroke();
-	Stroke(unsigned d, std::vector<Point> p);
-	static Stroke fromRaw(const RawStroke& s);
+	Stroke(unsigned d, std::vector<Point>);
+};
+
+struct FlatPoint : Point {
+	FlatPoint(int x, int y);
+	static FlatPoint fromRaw(const RawPoint&);
+};
+
+struct FlatStroke : Stroke {
+	FlatStroke();
+	FlatStroke(std::vector<FlatPoint>);
+	static FlatStroke fromRaw(const RawStroke&);
 };
 
 // struct Pattern { /* ... */ };
@@ -43,10 +52,10 @@ struct Marker  { std::string text; };
 
 using Atoms = std::variant<
 	std::vector<Stroke>,
-	std::vector<RawStroke>,
+	std::vector<FlatStroke>,
 	/*std::vector<Pattern>,*/
 	/*std::vector<Eraser>,*/
-	std::vector<Marker>
+	Marker
 >;
 
 /* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -132,7 +141,7 @@ std::ostream& operator<<(std::ostream& os, const Sketch&);
 std::ostream& operator<<(std::ostream& os, const Element&);
 // Atoms
 std::ostream& operator<<(std::ostream& os, const Stroke&);
-std::ostream& operator<<(std::ostream& os, const RawStroke&);
+std::ostream& operator<<(std::ostream& os, const FlatStroke&);
 std::ostream& operator<<(std::ostream& os, const Marker&);
 // Modifiers
 std::ostream& operator<<(std::ostream& os, const Mod::Affine&);

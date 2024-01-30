@@ -45,8 +45,8 @@ private:
 	static Parser /*    │ */<Element>               typeMarkerParse;
 	              /*    ├── <Atoms> */
 	static Parser /*    │     */<Stroke>            atomStrokeBrushParse;
-	static Parser /*    │     */<RawStroke>         atomStrokeDataParse;
-	static Parser /*    │     */<RawStroke>         atomStrokeRawParse;
+	static Parser /*    │     */<FlatStroke>        atomStrokeDataParse;
+	static Parser /*    │     */<FlatStroke>        atomStrokeRawParse;
 	static Parser /*    │     */<Marker>            atomMarkerParse;
 	static Parser /*    ├─*/<StrokeModifiers>       modsStrokeParse;
 	static Parser /*    │     */<Mod::Of_Stroke>    modAffineParse;

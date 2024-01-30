@@ -1,8 +1,8 @@
 CC        = emcc
 CXX       = em++
 CXXFLAGS  = -sUSE_SDL=2 -std=c++23 -Wall -ferror-limit=30 \
-            -fexperimental-library
-LDFLAGS   = -sUSE_SDL=2
+            -fexperimental-library -fsanitize=undefined
+LDFLAGS   = -sUSE_SDL=2 -fsanitize=undefined
 FUNCTIONS = _main,_jsSetPenPressure,_jsSetClipboard,_jsGetClipboard
 
 INPUT     = ../web/input/

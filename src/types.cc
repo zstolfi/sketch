@@ -3,28 +3,41 @@
 #include "util.hh"
 #include <algorithm>
 
-/* ~~ .HSC Data Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ Points & Strokes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 Point::Point(int x, int y, double p)
 : x{x}, y{y}, pressure{p} {}
 
-Point Point::fromRaw(const RawPoint& p) {
-	return Point {p.x, p.y, 1.0};
-}
-
 Stroke::Stroke()
 : diameter{3} {}
 
-Stroke::Stroke(unsigned d, std::vector<Point> p)
-: diameter{d}, points{p} {}
+Stroke::Stroke(unsigned d, std::vector<Point> v)
+: diameter{d}, points{v} {}
 
-Stroke Stroke::fromRaw(const RawStroke& raw) {
-	return Stroke {3,
+/* ~~ Flattened Points & Strokes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+FlatPoint::FlatPoint(int x, int y)
+: Point{x, y, 1.0} {}
+
+FlatPoint FlatPoint::fromRaw(const RawPoint& raw)
+{ return FlatPoint {raw.x, raw.y}; }
+
+FlatStroke::FlatStroke()
+: Stroke{} {}
+
+FlatStroke::FlatStroke(std::vector<FlatPoint> v)
+: Stroke{3, {}}
+{ points.reserve(v.size()); for (FlatPoint p : v) points.push_back(p); }
+
+FlatStroke FlatStroke::fromRaw(const RawStroke& raw) {
+	return FlatStroke {
 		raw.points
-		| views::transform(Point::fromRaw)
+		| views::transform(FlatPoint::fromRaw)
 		| ranges::to<std::vector>()
 	};
 }
+
+
 
 Sketch::Sketch() {}
 
@@ -36,7 +49,7 @@ Sketch Sketch::fromRaw(const RawSketch& raw) {
 		std::vector { Element {
 			Element::Data,
 			raw.strokes
-			| views::transform(Stroke::fromRaw)
+			| views::transform(FlatStroke::fromRaw)
 			| ranges::to<std::vector>()
 		} }
 	};
@@ -179,17 +192,15 @@ std::ostream& operator<<(std::ostream& os, const Element& element) {
 			}
 			os << "]";
 		},
-		[&os](const std::vector<RawStroke>& raw) {
+		[&os](const std::vector<FlatStroke>& raw) {
 			os << "[ ";
-			for (const RawStroke& s : raw) {
+			for (const FlatStroke& s : raw) {
 				os << s << " ";
 			}
 			os << "]";
 		},
-		[&os](const std::vector<Marker>& markers) {
-			// Doesn't really make sense to have
-			// multiple markers in elements yet.
-			os << markers[0];
+		[&os](const Marker& m) {
+			os << m;
 		},
 	}, element.atoms);
 
@@ -220,10 +231,12 @@ std::ostream& operator<<(std::ostream& os, const Stroke& s) {
 	return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const RawStroke& s) {
-	for (const RawPoint& p : s.points) {
-		os << Base36::toString<2,unsigned>(p.x)
-		   << Base36::toString<2,unsigned>(p.y);
+std::ostream& operator<<(std::ostream& os, const FlatStroke& s) {
+	for (std::size_t i = s.points.size()
+	;    const Point& p : s.points) {
+		os << Base36::toString<3,signed>(p.x)
+		   << Base36::toString<3,signed>(p.y)
+		   << (--i ? "\'" : "");
 	}
 	return os;
 }
