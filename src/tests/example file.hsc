@@ -56,14 +56,13 @@ Data [ 000000'00k000 000002'00k002 000004'00k004 000006'00k006 000008'00k008 000
 ,
 
 % Pencil is just a synonym for Data currently.
-% Pencil [ 0c902k0cc02i0ch02d0cg01k0c901a0ca01a0cl01d0d601c0df0170dg0170dm01s0ds0330dm0490d804q0cn04o0cp0410eg032 ],
+Pencil [ 0c902k0cc02i0ch02d0cg01k0c901a0ca01a0cl01d0d601c0df0170dg0170dm01s0ds0330dm0490d804q0cn04o0cp0410eg032 ],
 
 % String literals are in nestable parens, postscript-style.
-
 Marker ("The quick brown fox jumps over the lazy dog!!") Uppercase [],
 Marker (Shouted the text-modified marker.),
-
 Marker (This marker is the (final) element of the sketch.);
+
 %	Eraser
 %		TODO ...
 %	Pattern

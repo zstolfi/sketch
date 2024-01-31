@@ -3,6 +3,72 @@
 #include "util.hh"
 #include <algorithm>
 
+Sketch::Sketch() {}
+
+Sketch::Sketch(std::vector<Element> e)
+: elements{e} {}
+
+Sketch Sketch::fromRaw(const RawSketch& raw) {
+	return Sketch {
+		std::vector { Element {
+			Element::Data,
+			raw.strokes
+			| views::transform(FlatStroke::fromRaw)
+			| ranges::to<std::vector>()
+		} }
+	};
+}
+
+Element::Element(Element::Type t, Atoms a)
+: type{t}, atoms{a} {}
+
+Element::Element(Element::Type t, Atoms a, Modifiers m)
+: type{t}, atoms{a}, modifiers{m} {}
+
+/* ~~ Main "Flatten" Function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+auto Sketch::render() -> RawSketch {
+	RawSketch result {};
+
+	auto toRawPoint = [](const auto& p) {
+		return RawPoint {p.x,p.y};
+	};
+
+	auto toRawStroke = [&](const auto& s) {
+		return RawStroke {
+			s.points
+			| views::transform(toRawPoint)
+			| ranges::to<std::vector>()
+		};
+	};
+
+	for (const Element& e : elements) switch (e.type) {
+		case Element::Pencil:
+		case Element::Data:
+		{
+			const auto& strokes = std::get<FlatStrokeAtoms>(e.atoms);
+			ranges::copy(
+				strokes
+				| views::transform(toRawStroke)
+				, std::back_inserter(result.strokes)
+			);
+			break;
+		}
+		case Element::Brush:
+		{
+			const auto& strokes = std::get<StrokeAtoms>(e.atoms);
+			ranges::copy(
+				strokes
+				| views::transform(toRawStroke)
+				, std::back_inserter(result.strokes)
+			);
+			break;
+		}
+		default: break;
+	}
+	return result;
+}
+
 /* ~~ Points & Strokes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 Point::Point(int x, int y, double p)
@@ -36,30 +102,6 @@ FlatStroke FlatStroke::fromRaw(const RawStroke& raw) {
 		| ranges::to<std::vector>()
 	};
 }
-
-
-
-Sketch::Sketch() {}
-
-Sketch::Sketch(std::vector<Element> e)
-: elements{e} {}
-
-Sketch Sketch::fromRaw(const RawSketch& raw) {
-	return Sketch {
-		std::vector { Element {
-			Element::Data,
-			raw.strokes
-			| views::transform(FlatStroke::fromRaw)
-			| ranges::to<std::vector>()
-		} }
-	};
-}
-
-Element::Element(Element::Type t, Atoms a)
-: type{t}, atoms{a} {}
-
-Element::Element(Element::Type t, Atoms a, Modifiers m)
-: type{t}, atoms{a}, modifiers{m} {}
 
 /* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -144,15 +186,6 @@ auto Mod::Uppercase::operator()(std::span<const Marker> markers) const
 		| ranges::to<std::vector>();
 }
 
-/* ~~ Main "Flatten" Function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-auto Sketch::render() -> RawSketch {
-	return RawSketch ({
-		/* TODO ... */
-		RawStroke ({{0,0}, {800,0}, {800,600}, {0,600}, {0,0}})
-	});
-}
-
 /* ~~ Print Raw ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 std::ostream& operator<<(std::ostream& os, const RawSketch& sketch) {
@@ -179,9 +212,9 @@ std::ostream& operator<<(std::ostream& os, const Sketch& sketch) {
 std::ostream& operator<<(std::ostream& os, const Element& element) {
 	switch (element.type) {
 		case Element::Brush : os << "Brush " ; break;
+		case Element::Pencil: os << "Pencil "; break;
 		case Element::Data  : os << "Data "  ; break;
 		case Element::Marker: os << "Marker "; break;
-		default: std::unreachable();
 	}
 
 	std::visit(Util::Overloaded {

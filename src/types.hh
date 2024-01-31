@@ -50,10 +50,12 @@ struct FlatStroke : Stroke {
 // struct Eraser  { Mask shape; };
 struct Marker  { std::string text; };
 
+using StrokeAtoms = std::vector<Stroke>;
+using FlatStrokeAtoms = std::vector<FlatStroke>;
 using Atoms = std::variant<
-	std::vector<Stroke>,
-	std::vector<FlatStroke>,
-	/*std::vector<Pattern>,*/
+	StrokeAtoms,
+	FlatStrokeAtoms,
+	/*Pattern,*/
 	/*std::vector<Eraser>,*/
 	Marker
 >;
@@ -111,8 +113,8 @@ using Modifiers = std::variant<
 
 struct Element {
 	enum Type {
-		Brush, Data,
-		/* Pencil, Fill, Eraser, Letters,*/
+		Brush, Pencil, Data,
+		/* Fill, Eraser, Letters,*/
 		Marker,
 	};
 
@@ -122,6 +124,8 @@ struct Element {
 	Element(Type, Atoms);
 	Element(Type, Atoms, Modifiers);
 };
+
+struct FlatSketch;
 
 struct Sketch {
 	std::vector<Element> elements;

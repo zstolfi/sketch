@@ -152,6 +152,7 @@ auto SketchFormat::elementParse(TokenSpan tokens)
 	if (tokens.empty()) return Unexpected(EmptyElement);
 	Parser<Element>* elemParser =
 	  tokens[0] == Token {"Brush" } ? typeBrushParse
+	: tokens[0] == Token {"Pencil"} ? typePencilParse
 	: tokens[0] == Token {"Data"  } ? typeDataParse
 	: tokens[0] == Token {"Raw"   } ? typeRawParse
 	: tokens[0] == Token {"Marker"} ? typeMarkerParse
@@ -196,6 +197,32 @@ auto SketchFormat::typeBrushParse(TokenSpan tokens)
 	if (!modifiers) return Unexpected(modifiers.error());
 
 	return Element {Element::Brush, strokes, *modifiers};
+}
+
+auto SketchFormat::typePencilParse(TokenSpan tokens)
+-> Expected<Element> {
+	if (tokens.empty()) return Unexpected(EmptyElement);
+	if (tokens[0] != Token {"["}) return Unexpected(MissingBracketLeft);
+
+	auto it = tokens.begin();
+	auto contents = parenParse(tokens, it);
+	if (!contents) return Unexpected(contents.error(), *it);
+
+	std::vector<FlatStroke> strokes {};
+	strokes.reserve(contents->size());
+
+	for (const Token tkn : *contents) {
+		auto stroke = atomStrokeDataParse({&tkn, 1uz});
+		if (!stroke) return Unexpected(stroke.error());
+		strokes.push_back(*stroke);
+	}
+
+	auto modifiers = modsStrokeParse(
+		Util::subspan(tokens, it, tokens.end())
+	);
+	if (!modifiers) return Unexpected(modifiers.error());
+
+	return Element {Element::Pencil, strokes, *modifiers};
 }
 
 auto SketchFormat::typeDataParse(TokenSpan tokens)

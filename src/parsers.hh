@@ -40,6 +40,7 @@ private:
 	static Parser   <Sketch>                        sketchParse;
 	static Parser /*└─*/<Element>                   elementParse;
 	static Parser /*    │ */<Element>               typeBrushParse;
+	static Parser /*    │ */<Element>               typePencilParse;
 	static Parser /*    │ */<Element>               typeDataParse;
 	static Parser /*    │ */<Element>               typeRawParse;
 	static Parser /*    │ */<Element>               typeMarkerParse;
