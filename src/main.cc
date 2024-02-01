@@ -11,8 +11,10 @@
 struct AppState {
 	bool quit = false;
 	
-	RawSketch example;
-	std::optional<Point> cursor; // nullopt if off screen
+	FlatSketch example;
+
+	using Cursor = Atom::Stroke::Point;
+	std::optional<Cursor> cursor; // nullopt if off screen
 	bool pressed = false;
 };
 

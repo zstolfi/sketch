@@ -15,7 +15,7 @@ void ParserBase::SourcePos::next(char c) {
 /* ~~ Raw Parser ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto RawFormat::parse(std::string_view str)
--> Expected<RawSketch> {
+-> Expected<FlatSketch> {
 	return rawParse(tokenize(str));
 }
 
@@ -31,11 +31,11 @@ auto RawFormat::tokenize(std::string_view str)
 }
 
 auto RawFormat::rawParse(TokenSpan tokens)
--> Expected<RawSketch> {
-	RawSketch result {};
+-> Expected<FlatSketch> {
+	FlatSketch result {};
 
 	for (Token tkn : tokens) {
-		RawStroke stroke {};
+		Atom::FlatStroke stroke {};
 		auto str = tkn.string;
 
 		if (str.size()%4 != 0) return Unexpected(StrokeLength);
@@ -51,6 +51,16 @@ auto RawFormat::rawParse(TokenSpan tokens)
 	return result;
 }
 
+void RawFormat::print(std::ostream& os, const FlatSketch& sketch) {
+	for (const auto& s : sketch.strokes) {
+		os << " ";
+		for (const auto& p : s.points) {
+			os << Base36::toString<2,unsigned>(p.x)
+			   << Base36::toString<2,unsigned>(p.y);
+		}
+	}
+}
+
 /* ~~ Sketch Parser ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::parse(std::string_view str)
@@ -58,6 +68,10 @@ auto SketchFormat::parse(std::string_view str)
 	auto tokens = tokenize(str);
 	if (!tokens) return Unexpected(tokens.error());
 	return sketchParse(*tokens);
+}
+
+void SketchFormat::print(std::ostream& os, const Sketch& s) {
+	os << s;
 }
 
 auto SketchFormat::tokenize(std::string_view str)
@@ -175,7 +189,7 @@ auto SketchFormat::typeBrushParse(TokenSpan tokens)
 	auto contents = parenParse(tokens, it);
 	if (!contents) return Unexpected(contents.error(), *it);
 
-	std::vector<Stroke> strokes {};
+	std::vector<Atom::Stroke> strokes {};
 	strokes.reserve(contents->size());
 
 	if (tokens.size()%2 != 0) return Unexpected(ElementBrushSize);
@@ -196,7 +210,7 @@ auto SketchFormat::typeBrushParse(TokenSpan tokens)
 	);
 	if (!modifiers) return Unexpected(modifiers.error());
 
-	return Element {Element::Brush, strokes, *modifiers};
+	return Brush {strokes, *modifiers};
 }
 
 auto SketchFormat::typePencilParse(TokenSpan tokens)
@@ -208,7 +222,7 @@ auto SketchFormat::typePencilParse(TokenSpan tokens)
 	auto contents = parenParse(tokens, it);
 	if (!contents) return Unexpected(contents.error(), *it);
 
-	std::vector<FlatStroke> strokes {};
+	std::vector<Atom::FlatStroke> strokes {};
 	strokes.reserve(contents->size());
 
 	for (const Token tkn : *contents) {
@@ -222,7 +236,7 @@ auto SketchFormat::typePencilParse(TokenSpan tokens)
 	);
 	if (!modifiers) return Unexpected(modifiers.error());
 
-	return Element {Element::Pencil, strokes, *modifiers};
+	return Pencil {strokes, *modifiers};
 }
 
 auto SketchFormat::typeDataParse(TokenSpan tokens)
@@ -234,7 +248,7 @@ auto SketchFormat::typeDataParse(TokenSpan tokens)
 	auto contents = parenParse(tokens, it);
 	if (!contents) return Unexpected(contents.error(), *it);
 
-	std::vector<FlatStroke> strokes {};
+	std::vector<Atom::FlatStroke> strokes {};
 	strokes.reserve(contents->size());
 
 	for (const Token tkn : *contents) {
@@ -248,7 +262,7 @@ auto SketchFormat::typeDataParse(TokenSpan tokens)
 	);
 	if (!modifiers) return Unexpected(modifiers.error());
 
-	return Element {Element::Data, strokes, *modifiers};
+	return Data {strokes, *modifiers};
 }
 
 auto SketchFormat::typeRawParse(TokenSpan tokens)
@@ -260,7 +274,7 @@ auto SketchFormat::typeRawParse(TokenSpan tokens)
 	auto contents = parenParse(tokens, it);
 	if (!contents) return Unexpected(contents.error(), *it);
 
-	std::vector<FlatStroke> strokes {};
+	std::vector<Atom::FlatStroke> strokes {};
 	strokes.reserve(contents->size());
 
 	for (const Token tkn : *contents) {
@@ -274,7 +288,7 @@ auto SketchFormat::typeRawParse(TokenSpan tokens)
 	);
 	if (!modifiers) return Unexpected(modifiers.error());
 
-	return Element {Element::Data, strokes, *modifiers};
+	return Data {strokes, *modifiers};
 }
 
 auto SketchFormat::typeMarkerParse(TokenSpan tokens)
@@ -289,13 +303,13 @@ auto SketchFormat::typeMarkerParse(TokenSpan tokens)
 	);
 	if (!modifiers) return Unexpected(modifiers.error(), tokens[0]);
 
-	return Element {Element::Marker, *marker, *modifiers};
+	return Marker {*marker, *modifiers};
 }
 
 /* ~~ Atom Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::atomStrokeBrushParse(TokenSpan tokens)
--> Expected<Stroke> {
+-> Expected<Atom::Stroke> {
 	if (tokens.size() != 2) return Unexpected(AtomSize);
 
 	auto diameter = Base36::parse<2,unsigned>(tokens[0].string);
@@ -305,7 +319,7 @@ auto SketchFormat::atomStrokeBrushParse(TokenSpan tokens)
 	if (!strokeStr) return Unexpected(strokeStr.error(), tokens[1]);
 	auto& str = *strokeStr;
 
-	std::vector<Point> points {};
+	std::vector<Atom::Stroke::Point> points {};
 
 	if (str.size()%8 != 0) return Unexpected(StrokeLength, tokens[1]);
 	for (std::size_t i=0; i<str.size(); i+=8) {
@@ -316,18 +330,18 @@ auto SketchFormat::atomStrokeBrushParse(TokenSpan tokens)
 		points.emplace_back(*x, *y, *p/double(36*36-1));
 	}
 
-	return Stroke {*diameter, std::move(points)};
+	return Atom::Stroke {*diameter, std::move(points)};
 }
 
 auto SketchFormat::atomStrokeDataParse(TokenSpan tokens)
--> Expected<FlatStroke> {
+-> Expected<Atom::FlatStroke> {
 	if (tokens.size() != 1) return Unexpected(AtomSize);
 
 	auto strokeStr = removeTicks(tokens[0].string);
 	if (!strokeStr) return Unexpected(strokeStr.error(), tokens[0]);
 	auto& str = *strokeStr;
 
-	std::vector<FlatPoint> points {};
+	std::vector<Atom::FlatStroke::Point> points {};
 
 	if (str.size()%6 != 0) return Unexpected(StrokeLength, tokens[0]);
 	for (std::size_t i=0; i<str.size(); i+=6) {
@@ -336,18 +350,18 @@ auto SketchFormat::atomStrokeDataParse(TokenSpan tokens)
 		if (!x || !y) return Unexpected(ForeignDigit, tokens[0]);
 		points.emplace_back(*x, *y);
 	}
-	return FlatStroke {std::move(points)};
+	return Atom::FlatStroke {std::move(points)};
 }
 
 auto SketchFormat::atomStrokeRawParse(TokenSpan tokens)
--> Expected<FlatStroke> {
+-> Expected<Atom::FlatStroke> {
 	if (tokens.size() != 1) return Unexpected(AtomSize);
 
 	auto strokeStr = removeTicks(tokens[0].string);
 	if (!strokeStr) return Unexpected(strokeStr.error(), tokens[0]);
 	auto& str = *strokeStr;
 
-	std::vector<FlatPoint> points {};
+	std::vector<Atom::FlatStroke::Point> points {};
 
 	if (str.size()%4 != 0) return Unexpected(StrokeLength, tokens[0]);
 	for (std::size_t i=0; i<str.size(); i+=4) {
@@ -356,17 +370,17 @@ auto SketchFormat::atomStrokeRawParse(TokenSpan tokens)
 		if (!x || !y) return Unexpected(ForeignDigit, tokens[0]);
 		points.emplace_back(*x, *y);
 	}
-	return FlatStroke {std::move(points)};
+	return Atom::FlatStroke {std::move(points)};
 }
 
 auto SketchFormat::atomMarkerParse(TokenSpan tokens)
--> Expected<Marker> {
+-> Expected<Atom::Marker> {
 	if (tokens.size() != 1) return Unexpected(AtomSize);
 	if (!isStringLiteral(tokens[0])) {
 		return Unexpected(MissingString, tokens[0]);
 	}
 
-	return Marker {std::string {
+	return Atom::Marker {std::string {
 		std::next(tokens[0].string.begin()),
 		std::prev(tokens[0].string.end())
 	}};

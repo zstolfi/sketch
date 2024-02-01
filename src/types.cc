@@ -3,104 +3,47 @@
 #include "util.hh"
 #include <algorithm>
 
-Sketch::Sketch() {}
-
-Sketch::Sketch(std::vector<Element> e)
-: elements{e} {}
-
-Sketch Sketch::fromRaw(const RawSketch& raw) {
-	return Sketch {
-		std::vector { Element {
-			Element::Data,
-			raw.strokes
-			| views::transform(FlatStroke::fromRaw)
-			| ranges::to<std::vector>()
-		} }
-	};
-}
-
-Element::Element(Element::Type t, Atoms a)
-: type{t}, atoms{a} {}
-
-Element::Element(Element::Type t, Atoms a, Modifiers m)
-: type{t}, atoms{a}, modifiers{m} {}
-
-/* ~~ Main "Flatten" Function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-auto Sketch::render() -> RawSketch {
-	RawSketch result {};
-
-	auto toRawPoint = [](const auto& p) {
-		return RawPoint {p.x,p.y};
-	};
-
-	auto toRawStroke = [&](const auto& s) {
-		return RawStroke {
-			s.points
-			| views::transform(toRawPoint)
-			| ranges::to<std::vector>()
-		};
-	};
-
-	for (const Element& e : elements) switch (e.type) {
-		case Element::Pencil:
-		case Element::Data:
-		{
-			const auto& strokes = std::get<FlatStrokeAtoms>(e.atoms);
-			ranges::copy(
-				strokes
-				| views::transform(toRawStroke)
-				, std::back_inserter(result.strokes)
-			);
-			break;
-		}
-		case Element::Brush:
-		{
-			const auto& strokes = std::get<StrokeAtoms>(e.atoms);
-			ranges::copy(
-				strokes
-				| views::transform(toRawStroke)
-				, std::back_inserter(result.strokes)
-			);
-			break;
-		}
-		default: break;
-	}
-	return result;
-}
-
 /* ~~ Points & Strokes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-Point::Point(int x, int y, double p)
-: x{x}, y{y}, pressure{p} {}
+Sketch::Sketch() {}
+Sketch::Sketch(std::vector<Element> v)
+: elements{v} {}
 
-Stroke::Stroke()
+FlatSketch::FlatSketch() {}
+FlatSketch::FlatSketch(std::vector<Atom::FlatStroke> v)
+: strokes{v} {}
+
+Atom::Stroke::Stroke()
 : diameter{3} {}
-
-Stroke::Stroke(unsigned d, std::vector<Point> v)
+Atom::Stroke::Stroke(unsigned d, std::vector<Point> v)
 : diameter{d}, points{v} {}
 
-/* ~~ Flattened Points & Strokes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+Atom::Stroke::Point::Point(int x, int y, double p)
+: x{x}, y{y}, pressure{p} {}
 
-FlatPoint::FlatPoint(int x, int y)
-: Point{x, y, 1.0} {}
+Atom::FlatStroke::FlatStroke() {}
+Atom::FlatStroke::FlatStroke(std::vector<Point> v)
+: points{v} {}
 
-FlatPoint FlatPoint::fromRaw(const RawPoint& raw)
-{ return FlatPoint {raw.x, raw.y}; }
+Atom::FlatStroke::Point::Point(int x, int y)
+: x{x}, y{y} {}
 
-FlatStroke::FlatStroke()
-: Stroke{} {}
+/* ~~ Up-Cast Operators ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-FlatStroke::FlatStroke(std::vector<FlatPoint> v)
-: Stroke{3, {}}
-{ points.reserve(v.size()); for (FlatPoint p : v) points.push_back(p); }
+Atom::FlatStroke::operator Stroke() {
+	auto toStrokePoint = [](Atom::FlatStroke::Point flat) {
+		return Atom::Stroke::Point {flat.x, flat.y, 1.0};
+	};
 
-FlatStroke FlatStroke::fromRaw(const RawStroke& raw) {
-	return FlatStroke {
-		raw.points
-		| views::transform(FlatPoint::fromRaw)
+	return Stroke {3,
+		points
+		| views::transform(toStrokePoint)
 		| ranges::to<std::vector>()
 	};
+}
+
+FlatSketch::operator Sketch() {
+	return Sketch ({ Data {strokes} });
 }
 
 /* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -127,22 +70,18 @@ auto Mod::Affine::operator*(Affine other) const -> Affine {
 	});
 }
 
-auto Mod::Affine::operator*(Point p) const -> Point {
-	return Point {
-		int(matrix[0]*p.x + matrix[1]*p.y + matrix[2]),
-		int(matrix[3]*p.x + matrix[4]*p.y + matrix[5]),
-		/* .pressure */ 1.0,
-	};
-}
-
-auto Mod::Affine::operator()(std::span<const Stroke> strokes) const
--> std::vector<Stroke> {
-	auto multiplyP = [this](Point p) {
-		return (*this) * p;
+auto Mod::Affine::operator()(std::span<const Atom::Stroke> strokes)
+const -> std::vector<Atom::Stroke> {
+	auto multiplyP = [&m = this->matrix](Atom::Stroke::Point p) {
+		return Atom::Stroke::Point {
+			int(m[0]*p.x + m[1]*p.y + m[2]),
+			int(m[3]*p.x + m[4]*p.y + m[5]),
+			/* .pressure */ 1.0,
+		};
 	};
 
-	auto multiplyS = [&](const Stroke& s) -> Stroke {
-		return Stroke {
+	auto multiplyS = [&](const Atom::Stroke& s) -> Atom::Stroke {
+		return Atom::Stroke {
 			s.diameter,
 			s.points
 			| views::transform(multiplyP)
@@ -157,8 +96,8 @@ auto Mod::Affine::operator()(std::span<const Stroke> strokes) const
 
 Mod::Array::Array(std::size_t n, Affine tf) : N{n}, transformation{tf} {}
 
-auto Mod::Array::operator()(std::span<const Stroke> strokes) const
--> std::vector<Stroke> {
+auto Mod::Array::operator()(std::span<const Atom::Stroke> strokes)
+const -> std::vector<Atom::Stroke> {
 	auto applyMatPower = [this, &strokes](std::size_t i) {
 		return Util::pow(transformation, i)(strokes);
 	};
@@ -171,10 +110,10 @@ auto Mod::Array::operator()(std::span<const Stroke> strokes) const
 
 Mod::Uppercase::Uppercase() {}
 
-auto Mod::Uppercase::operator()(std::span<const Marker> markers) const
--> std::vector<Marker> {
-	auto toUpperM = [&](const Marker& m) {
-		return Marker {
+auto Mod::Uppercase::operator()(std::span<const Atom::Marker> markers)
+const -> std::vector<Atom::Marker> {
+	auto toUpperM = [&](const Atom::Marker& m) {
+		return Atom::Marker {
 			m.text
 			| views::transform(Util::toUpper)
 			| ranges::to<std::string>()
@@ -184,19 +123,6 @@ auto Mod::Uppercase::operator()(std::span<const Marker> markers) const
 	return markers
 		| views::transform(toUpperM)
 		| ranges::to<std::vector>();
-}
-
-/* ~~ Print Raw ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-std::ostream& operator<<(std::ostream& os, const RawSketch& sketch) {
-	for (const RawStroke& s : sketch.strokes) {
-		os << " ";
-		for (const RawPoint& p : s.points) {
-			os << Base36::toString<2,unsigned>(p.x)
-			   << Base36::toString<2,unsigned>(p.y);
-		}
-	}
-	return os;
 }
 
 /* ~~ Print Sketch ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -210,94 +136,90 @@ std::ostream& operator<<(std::ostream& os, const Sketch& sketch) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Element& element) {
-	switch (element.type) {
-		case Element::Brush : os << "Brush " ; break;
-		case Element::Pencil: os << "Pencil "; break;
-		case Element::Data  : os << "Data "  ; break;
-		case Element::Marker: os << "Marker "; break;
-	}
-
 	std::visit(Util::Overloaded {
-		[&os](const std::vector<Stroke>& strokes) {
-			os << "[ ";
-			for (const Stroke& s : strokes) {
-				os << s << " ";
-			}
-			os << "]";
-		},
-		[&os](const std::vector<FlatStroke>& raw) {
-			os << "[ ";
-			for (const FlatStroke& s : raw) {
-				os << s << " ";
-			}
-			os << "]";
-		},
-		[&os](const Marker& m) {
-			os << m;
-		},
-	}, element.atoms);
+		[&os](const Brush&)  { os << "Brush " ; },
+		[&os](const Pencil&) { os << "Pencil "; },
+		[&os](const Data&)   { os << "Data "  ; },
+		[&os](const Marker&) { os << "Marker "; },
+	}, element);
 
-	std::visit([&os](const auto& modifiers) {
-		for (const auto& mod : modifiers) {
-			std::visit([&os](const auto& m) {
-				os << "\n\t" << m;
-			}, mod);
-		}
-	}, element.modifiers);
+	std::visit([&os](const auto& e) {
+		os << e.atoms << e.modifiers;
+	}, element);
 
 	return os;
 }
 
 /* ~~ Print Atoms ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-std::ostream& operator<<(std::ostream& os, const Stroke& s) {
-	os << Base36::toString<2,unsigned>(s.diameter) << " ";
-	for (std::size_t i = s.points.size()
-	;    const Point& p : s.points) {
-		os << Base36::toString<3,signed>(p.x)
-		   << Base36::toString<3,signed>(p.y)
-		   << "\'";
-		unsigned pressure = (36*36-1) * p.pressure;
-		os << Base36::toString<2,unsigned>(pressure)
-		   << (--i ? "\'" : "");
+std::ostream& operator<<(std::ostream& os, const StrokeAtoms& v) {
+	os << "[ ";
+	for (Atom::Stroke s : v) {
+		os << Base36::toString<2,unsigned>(s.diameter) << " ";
+		for (std::size_t i = s.points.size()
+		;    const auto& p : s.points) {
+			os << Base36::toString<3,signed>(p.x)
+			   << Base36::toString<3,signed>(p.y)
+			   << "\'";
+			unsigned pressure = (36*36-1) * p.pressure;
+			os << Base36::toString<2,unsigned>(pressure)
+			   << (--i ? "\'" : "");
+		}
 	}
-	return os;
+	return os << " ]";
 }
 
-std::ostream& operator<<(std::ostream& os, const FlatStroke& s) {
-	for (std::size_t i = s.points.size()
-	;    const Point& p : s.points) {
-		os << Base36::toString<3,signed>(p.x)
-		   << Base36::toString<3,signed>(p.y)
-		   << (--i ? "\'" : "");
+std::ostream& operator<<(std::ostream& os, const FlatStrokeAtoms& v) {
+	os << "[ ";
+	for (Atom::FlatStroke s : v) {
+		for (std::size_t i = s.points.size()
+		;    const auto& p : s.points) {
+			os << Base36::toString<3,signed>(p.x)
+			   << Base36::toString<3,signed>(p.y)
+			   << (--i ? "\'" : "");
+		}
 	}
-	return os;
+	return os << " ]";
 }
 
-std::ostream& operator<<(std::ostream& os, const Marker& m) {
+std::ostream& operator<<(std::ostream& os, const MarkerAtom& m) {
 	return os << "(" << m.text << ")";
 }
 
 /* ~~ Print Modifiers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-std::ostream& operator<<(std::ostream& os, const Mod::Affine& a) {
-	const auto& m = a.matrix;
-	os << "Affine [ "
-	   << m[0] << " " << m[1] << " " << m[2] << " "
-	   << m[3] << " " << m[4] << " " << m[5] << " "
-	   << m[6] << " " << m[7] << " " << m[8] << " ";
-	os << "]";
+std::ostream& operator<<(std::ostream& os, const StrokeModifiers v) {
+	for (const Mod::Of_Stroke& mod : v) {
+		os << "\n\t";
+		std::visit(Util::Overloaded {
+			[&os](const Mod::Affine& a) {
+				os << "Affine [ ";
+				for (std::size_t i=0; i<9; i++) {
+					os << a.matrix[i] << " ";
+				}
+				os << "]";
+			},
+			[&os](const Mod::Array& a) {
+				os << "Array [ ";
+				os << a.N << " ";
+				for (std::size_t i=0; i<9; i++) {
+					os << a.transformation.matrix[i] << " ";
+				}
+				os << "]";
+			},
+		}, mod);
+	}
 	return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Mod::Array& a) {
-	os << "Array [ "
-	   << a.N << " "
-	   << a.transformation << " ";
-	os << "]";
+std::ostream& operator<<(std::ostream& os, const MarkerModifiers v) {
+	for (const Mod::Of_Marker& mod : v) {
+		os << "\n\t";
+		std::visit(Util::Overloaded {
+			[&os](const Mod::Uppercase&) {
+				os << "Uppercase [ ]";
+			},
+		}, mod);
+	}
 	return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const Mod::Uppercase& u) {
-	return os << "Uppercase [ ]";
 }

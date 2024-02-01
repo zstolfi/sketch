@@ -1,5 +1,6 @@
 #include "renderer.hh"
 #include "graphics.hh"
+#include "util.hh"
 #include <algorithm>
 
 Renderer::Renderer(
@@ -13,12 +14,25 @@ Renderer::Renderer(
 
 /* ~~ Drawing Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-void Renderer::displayRaw(std::span<const RawStroke> rawSketch) {
-	for (const RawStroke& s : rawSketch) {
-		const auto& p = s.points;
-		if (p.size() == 1) { drawLine(p[0], p[0]); continue; }
-		for (std::size_t i=1; i<p.size(); i++) {
-			drawLine(p[i-1], p[i]);
+void Renderer::displayRaw(std::span<const Atom::FlatStroke> strokes) {
+	for (const Atom::FlatStroke& s : strokes) {
+		if (s.points.size() < 2) continue;
+
+		auto toVec2 = [](Atom::FlatStroke::Point p) {
+			return Vec2 {Real(p.x), Real(p.y)};
+		};
+
+		// ranges::for_each(
+		// 	s.points
+		// 	| views::transform(toVec2)
+		// 	| views::slide(2)
+		// 	, [&](auto&& r) { drawLine(r[0], r[1]); }
+		// );
+		for (std::size_t i=0; i<s.points.size()-1; i++) {
+			drawLine(
+				toVec2(s.points[i+0]),
+				toVec2(s.points[i+1])
+			);
 		}
 	}
 }
@@ -30,7 +44,7 @@ void Renderer::clear() {
 }
 
 // TODO: more efficient line draw function
-void Renderer::drawLine(RawPoint a, RawPoint b) {
+void Renderer::drawLine(Vec2 a, Vec2 b) {
 	auto [xMin, xMax] = std::minmax(a.x, b.x);
 	auto [yMin, yMax] = std::minmax(a.y, b.y);
 	const Real x0 = max(  0, xMin-2);
@@ -38,8 +52,8 @@ void Renderer::drawLine(RawPoint a, RawPoint b) {
 	const Real x1 = min(W-1, xMax+2);
 	const Real y1 = min(H-1, yMax+2);
 
-	const Vec2 av = {(Real)a.x, (Real)a.y};
-	const Vec2 bv = {(Real)b.x, (Real)b.y};
+	const Vec2 av = {a.x, a.y};
+	const Vec2 bv = {b.x, b.y};
 
 	Vec2 xy;
 	for (Real y=y0; y<=y1; y+=1) {

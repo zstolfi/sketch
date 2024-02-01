@@ -8,14 +8,16 @@
 
 class RawFormat : public ParserBase {
 public:
-	static auto parse(std::string_view) -> Expected<RawSketch>;
+	// Alternatively I could use an istream& instead of a string_view.
+	static auto parse(std::string_view) -> Expected<FlatSketch>;
+	static void print(std::ostream&, const FlatSketch&);
 
 private:
 	static auto tokenize(std::string_view)
 	-> std::vector<Token>;
 
 	static auto rawParse(TokenSpan)
-	-> Expected<RawSketch>;
+	-> Expected<FlatSketch>;
 };
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -23,6 +25,7 @@ private:
 class SketchFormat : public ParserBase {
 public:
 	static auto parse(std::string_view) -> Expected<Sketch>;
+	static void print(std::ostream&, const Sketch&);
 
 private:
 	static auto tokenize(std::string_view)
@@ -37,24 +40,26 @@ private:
 	template <typename T>
 	using Parser = auto (TokenSpan) -> Expected<T>;
 
-	static Parser   <Sketch>                        sketchParse;
-	static Parser /*└─*/<Element>                   elementParse;
-	static Parser /*    │ */<Element>               typeBrushParse;
-	static Parser /*    │ */<Element>               typePencilParse;
-	static Parser /*    │ */<Element>               typeDataParse;
-	static Parser /*    │ */<Element>               typeRawParse;
-	static Parser /*    │ */<Element>               typeMarkerParse;
-	              /*    ├── <Atoms> */
-	static Parser /*    │     */<Stroke>            atomStrokeBrushParse;
-	static Parser /*    │     */<FlatStroke>        atomStrokeDataParse;
-	static Parser /*    │     */<FlatStroke>        atomStrokeRawParse;
-	static Parser /*    │     */<Marker>            atomMarkerParse;
-	static Parser /*    ├─*/<StrokeModifiers>       modsStrokeParse;
-	static Parser /*    │     */<Mod::Of_Stroke>    modAffineParse;
-	static Parser /*    │     */<Mod::Of_Stroke>    modArrayParse;
-	static Parser /*    └─*/<MarkerModifiers>       modsMarkerParse;
-	static Parser /*          */<Mod::Of_Marker>    modUppercaseParse;
+	static Parser  <Sketch>                         sketchParse;
+	static Parser/*└─*/<Element>                    elementParse;
+	static Parser/*    │ */<Element>                typeBrushParse;
+	static Parser/*    │ */<Element>                typePencilParse;
+	static Parser/*    │ */<Element>                typeDataParse;
+	static Parser/*    │ */<Element>                typeRawParse;
+	static Parser/*    │ */<Element>                typeMarkerParse;
+	/*                 ├── <Atoms> */
+	static Parser/*    │     */<Atom::Stroke>       atomStrokeBrushParse;
+	static Parser/*    │     */<Atom::FlatStroke>   atomStrokePencilParse;
+	static Parser/*    │     */<Atom::FlatStroke>   atomStrokeDataParse;
+	static Parser/*    │     */<Atom::FlatStroke>   atomStrokeRawParse;
+	static Parser/*    │     */<Atom::Marker>       atomMarkerParse;
+	/*                 └── <Modifiers> */
+	static Parser/*        ├─*/<StrokeModifiers>    modsStrokeParse;
+	static Parser/*        │     */<Mod::Of_Stroke> modAffineParse;
+	static Parser/*        │     */<Mod::Of_Stroke> modArrayParse;
+	static Parser/*        └─*/<MarkerModifiers>    modsMarkerParse;
+	static Parser/*              */<Mod::Of_Marker> modUppercaseParse;
 
 public:
-	static auto printTokens(std::string_view) -> void;
+	static void printTokens(std::string_view);
 };

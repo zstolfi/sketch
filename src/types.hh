@@ -5,67 +5,50 @@
 #include <vector>
 #include <span>
 
-/* ~~ .sketch Compatible Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ Atom Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-struct RawPoint  {
-	int x, y;
-};
+namespace Atom
+{
+	struct Stroke {
+		struct Point {
+			int x, y; double pressure;
+			Point(int x, int y, double);
+		};
+		unsigned diameter;
+		std::vector<Point> points;
 
-struct RawStroke {
-	std::vector<RawPoint> points;
-};
+		Stroke();
+		Stroke(unsigned d, std::vector<Point>);
+	};
 
-struct RawSketch {
-	std::vector<RawStroke> strokes;
-};
+	struct FlatStroke {
+		struct Point {
+			int x, y;
+			Point(int x, int y);
+		};
+		std::vector<Point> points;
 
-/* ~~ .HSC Specific Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+		FlatStroke();
+		FlatStroke(std::vector<Point>);
+		operator Stroke();
+	};
 
-struct Point {
-	int x, y;
-	double pressure;
-	Point(int x, int y, double p);
-};
+	// struct Pattern { /* ... */ };
+	// struct Mask    { /* ... */ };
+	// struct Eraser  { Mask shape; };
+	struct Marker  { std::string text; };
+}
 
-struct Stroke {
-	unsigned diameter;
-	std::vector<Point> points;
-	Stroke();
-	Stroke(unsigned d, std::vector<Point>);
-};
-
-struct FlatPoint : Point {
-	FlatPoint(int x, int y);
-	static FlatPoint fromRaw(const RawPoint&);
-};
-
-struct FlatStroke : Stroke {
-	FlatStroke();
-	FlatStroke(std::vector<FlatPoint>);
-	static FlatStroke fromRaw(const RawStroke&);
-};
-
-// struct Pattern { /* ... */ };
-// struct Mask    { /* ... */ };
-// struct Eraser  { Mask shape; };
-struct Marker  { std::string text; };
-
-using StrokeAtoms = std::vector<Stroke>;
-using FlatStrokeAtoms = std::vector<FlatStroke>;
-using Atoms = std::variant<
-	StrokeAtoms,
-	FlatStrokeAtoms,
-	/*Pattern,*/
-	/*std::vector<Eraser>,*/
-	Marker
->;
+using StrokeAtoms     = std::vector<Atom::Stroke>;
+using FlatStrokeAtoms = std::vector<Atom::FlatStroke>;
+using MarkerAtom      = Atom::Marker;
 
 /* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 namespace Mod
 {
-	template <typename Atom>
-	using Call_t = std::vector<Atom>(std::span<const Atom>) const;
+	template <typename A>
+	using Call_t = std::vector<A>(std::span<const A>) const;
 
 	/* ~~ Stroke Modifiers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -76,8 +59,7 @@ namespace Mod
 		Affine(double);
 		Affine(std::array<double,9>);
 		auto operator*(Affine) const -> Affine;
-		auto operator*(Point) const -> Point;
-		Call_t<Stroke> operator();
+		Call_t<Atom::Stroke> operator();
 	};
 
 	class Array {
@@ -85,7 +67,7 @@ namespace Mod
 		std::size_t N;
 		Affine transformation;
 		Array(std::size_t n, Affine tf);
-		Call_t<Stroke> operator();
+		Call_t<Atom::Stroke> operator();
 	};
 
 	using Of_Stroke = std::variant<Affine, Array>;
@@ -95,7 +77,7 @@ namespace Mod
 	class Uppercase {
 	public:
 		Uppercase();
-		Call_t<Marker> operator();
+		Call_t<Atom::Marker> operator();
 	};
 
 	using Of_Marker = std::variant<Uppercase>;
@@ -103,51 +85,50 @@ namespace Mod
 
 using StrokeModifiers = std::vector<Mod::Of_Stroke>;
 using MarkerModifiers = std::vector<Mod::Of_Marker>;
-using Modifiers = std::variant<
-	StrokeModifiers,
-	MarkerModifiers
-	/*, ... */
+
+/* ~~ Elements Type ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+template <typename A, typename M>
+struct Element_Base { A atoms; M modifiers; };
+
+struct Brush  : Element_Base <StrokeAtoms    , StrokeModifiers> {};
+struct Pencil : Element_Base <FlatStrokeAtoms, StrokeModifiers> {};
+struct Data   : Element_Base <FlatStrokeAtoms, StrokeModifiers> {};
+struct Marker : Element_Base <MarkerAtom     , MarkerModifiers> {};
+
+using Element = std::variant<
+	Brush, Pencil, Data,
+	Marker
 >;
 
-/* ~~ Main Sketch Type ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ Main Sketch Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-struct Element {
-	enum Type {
-		Brush, Pencil, Data,
-		/* Fill, Eraser, Letters,*/
-		Marker,
-	};
+struct Sketch;
+struct FlatSketch {
+	std::vector<Atom::FlatStroke> strokes;
 
-	Type type;
-	Atoms atoms;
-	Modifiers modifiers;
-	Element(Type, Atoms);
-	Element(Type, Atoms, Modifiers);
+	FlatSketch();
+	FlatSketch(std::vector<Atom::FlatStroke>);
+	operator Sketch();
 };
-
-struct FlatSketch;
 
 struct Sketch {
 	std::vector<Element> elements;
+
 	Sketch();
 	Sketch(std::vector<Element>);
-	static Sketch fromRaw(const RawSketch&);
-	auto render() -> RawSketch;
+	auto render() -> FlatSketch;
 };
 
 /* ~~ Print Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-// Raw Sketch
-std::ostream& operator<<(std::ostream& os, const RawSketch&);
 
 // Sketch
 std::ostream& operator<<(std::ostream& os, const Sketch&);
 std::ostream& operator<<(std::ostream& os, const Element&);
 // Atoms
-std::ostream& operator<<(std::ostream& os, const Stroke&);
-std::ostream& operator<<(std::ostream& os, const FlatStroke&);
-std::ostream& operator<<(std::ostream& os, const Marker&);
+std::ostream& operator<<(std::ostream& os, const StrokeAtoms&);
+std::ostream& operator<<(std::ostream& os, const FlatStrokeAtoms&);
+std::ostream& operator<<(std::ostream& os, const MarkerAtom&);
 // Modifiers
-std::ostream& operator<<(std::ostream& os, const Mod::Affine&);
-std::ostream& operator<<(std::ostream& os, const Mod::Array&);
-std::ostream& operator<<(std::ostream& os, const Mod::Uppercase&);
+std::ostream& operator<<(std::ostream& os, const StrokeModifiers);
+std::ostream& operator<<(std::ostream& os, const MarkerModifiers);

@@ -12,7 +12,7 @@ class Renderer {
 	std::function<uint32_t(Col3)> MapRGB;
 	std::function<Col3(uint32_t)> GetRGB;
 
-	void drawLine(RawPoint a, RawPoint b);
+	void drawLine(Vec2 a, Vec2 b);
 
 public:
 	Renderer(
@@ -23,6 +23,6 @@ public:
 	);
 
 	void clear();
-	void displayRaw(std::span<const RawStroke>);
+	void displayRaw(std::span<const Atom::FlatStroke>);
 	// void display(std::span<const Elements>);
 };
