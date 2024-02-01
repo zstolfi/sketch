@@ -117,7 +117,7 @@ struct Sketch {
 
 	Sketch();
 	Sketch(std::vector<Element>);
-	auto render() -> FlatSketch;
+	auto render() const -> FlatSketch;
 };
 
 /* ~~ Print Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

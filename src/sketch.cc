@@ -1,49 +1,45 @@
 #include "types.hh"
+#include "util.hh"
+#include <vector>
+#include <span>
+
+namespace
+{
+	using namespace Atom;
+
+	auto flattenStrokes(std::span<const Stroke> strokes) {
+		std::vector<FlatStroke> result {};
+		result.reserve(strokes.size());
+
+		for (const Stroke& s : strokes) {
+			FlatStroke subResult {};
+			for (const auto& p : s.points) {
+				// Ignore p.pressure ... (for now).
+				subResult.points.emplace_back(p.x, p.y);
+			}
+			result.push_back(std::move(subResult));
+		}
+
+		return result;
+	}
+}
 
 /* ~~ Main "Flatten" Function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-auto Sketch::render() -> FlatSketch {
-	FlatSketch result ({
-		Atom::FlatStroke ({
-			{0,0}, {800,0}, {800,600}, {0,600}, {0,0}
-		})
-	});
+auto Sketch::render() const -> FlatSketch {
+	FlatSketch result {};
+	auto append = [&result](ranges::input_range auto&& r) {
+		ranges::copy(r, std::back_inserter(result.strokes));
+	};
 
-	// auto toRawPoint = [](const auto& p) {
-	// 	return RawPoint {p.x,p.y};
-	// };
+	for (const auto& elem : elements) {
+		std::visit(Util::Overloaded {
+			[&](const Brush&  e) { append(flattenStrokes(e.atoms)); },
+			[&](const Pencil& e) { append(e.atoms); },
+			[&](const Data&   e) { append(e.atoms); },
+			[&](const auto&) {},
+		}, elem);
+	}
 
-	// auto toRawStroke = [&](const auto& s) {
-	// 	return RawStroke {
-	// 		s.points
-	// 		| views::transform(toRawPoint)
-	// 		| ranges::to<std::vector>()
-	// 	};
-	// };
-
-	// for (const Element& e : elements) switch (e.type) {
-	// 	case Element::Pencil:
-	// 	case Element::Data:
-	// 	{
-	// 		const auto& strokes = std::get<FlatStrokeAtoms>(e.atoms);
-	// 		ranges::copy(
-	// 			strokes
-	// 			| views::transform(toRawStroke)
-	// 			, std::back_inserter(result.strokes)
-	// 		);
-	// 		break;
-	// 	}
-	// 	case Element::Brush:
-	// 	{
-	// 		const auto& strokes = std::get<StrokeAtoms>(e.atoms);
-	// 		ranges::copy(
-	// 			strokes
-	// 			| views::transform(toRawStroke)
-	// 			, std::back_inserter(result.strokes)
-	// 		);
-	// 		break;
-	// 	}
-	// 	default: break;
-	// }
 	return result;
 }
