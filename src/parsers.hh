@@ -37,8 +37,8 @@ private:
 	static auto isStringLiteral(const Token) -> bool;
 	static auto removeTicks(std::string_view) -> Expected<std::string>;
 
-	template <typename T>
-	using Parser = auto (TokenSpan) -> Expected<T>;
+	template <typename T, typename... Args>
+	using Parser = auto (TokenSpan, Args...) -> Expected<T>;
 
 	static Parser  <Sketch>                         sketchParse;
 	static Parser/*└─*/<Element>                    elementParse;
@@ -60,6 +60,43 @@ private:
 	static Parser/*        └─*/<MarkerModifiers>    modsMarkerParse;
 	static Parser/*              */<Mod::Of_Marker> modUppercaseParse;
 
+	template <typename E, std::size_t N, typename Atom_t>
+	static Parser<Element, Parser<Atom_t>&> parseStroke;
+
 public:
 	static void printTokens(std::string_view);
 };
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+template <typename Element_t, std::size_t AtomLen, typename Atom_t>
+auto SketchFormat::parseStroke(
+	TokenSpan tokens,
+	Parser<Atom_t>& atomParser
+)
+-> Expected<Element> {
+	if (tokens.empty()) return Unexpected(EmptyElement);
+	if (tokens[0] != Token {"["}) return Unexpected(MissingBracketLeft);
+
+	auto it = tokens.begin();
+	auto contents = parenParse(tokens, it);
+	if (!contents) return Unexpected(contents.error(), *it);
+
+	std::vector<Atom_t> strokes {};
+	strokes.reserve(contents->size());
+
+	if (tokens.size() % AtomLen) return Unexpected(ElementBrushSize);
+	for (auto jt=contents->begin(); jt!=contents->end()
+	;    std::advance(jt, AtomLen)) {
+		auto stroke = atomParser({jt, AtomLen});
+		if (!stroke) return Unexpected(stroke.error());
+		strokes.push_back(*stroke);
+	}
+
+	auto modifiers = modsStrokeParse(
+		Util::subspan(tokens, it, tokens.end())
+	);
+	if (!modifiers) return Unexpected(modifiers.error());
+
+	return Element_t {strokes, *modifiers};
+}

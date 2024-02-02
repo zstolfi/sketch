@@ -27,8 +27,8 @@ public:
 		// all valid values are 1-indexed.
 		std::size_t row=0, col=0;
 
-		void next();
-		void next(char);
+		void next() { col++; }
+		void next(char c) { c == '\n' ? row++, col=0 : col++; }
 		auto operator<=>(const SourcePos&) const = default;
 		friend std::ostream& operator<<(std::ostream&, const SourcePos&);
 	};
@@ -68,26 +68,26 @@ protected:
 	template <typename T>
 	using Expected = std::expected<T, ParseError>;
 
-	static constexpr auto Unexpected(auto&& err) {
-		return std::unexpected {ParseError {err}};
+	static constexpr auto Unexpected(auto&& e) {
+		return std::unexpected {ParseError {e}};
 	}
 
-	static constexpr auto Unexpected(auto&& err, SourcePos pos) {
-		ParseError error {err};
+	static constexpr auto Unexpected(auto&& e, SourcePos pos) {
+		ParseError error {e};
 		if (error.pos == SourcePos_unknown) error.pos = pos;
 		return std::unexpected {error};
 	}
 
-	static constexpr auto Unexpected(auto&& err, Token tkn) {
-		ParseError error {err};
+	static constexpr auto Unexpected(auto&& e, Token tkn) {
+		ParseError error {e};
 		if (error.pos == SourcePos_unknown) error.pos = tkn.pos;
 		return std::unexpected {error};
 	}
 
 	template <typename Base>
-	static constexpr auto errorFrom(Base::ParseError err) -> ParseError {
-		if (err == Base::ForeignDigit) return ForeignDigit;
-		if (err == Base::StringSize)   return NumberSize;
+	static constexpr auto errorFrom(Base::ParseError e) -> ParseError {
+		if (e == Base::ForeignDigit) return ForeignDigit;
+		if (e == Base::StringSize)   return NumberSize;
 		return NumberError;
 	};
 
@@ -101,78 +101,84 @@ protected:
 		return Util::isAny(c, "\n\r");
 	}
 
-	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
 	template <std::integral T>
-	static auto integerParse(const Token tkn) -> Expected<T> {
-		auto str = tkn.string;
-
-		int sign = 1;
-		if (Util::isAny(str[0], "+-")) {
-			if constexpr (std::is_signed_v<T>) {
-				return std::unexpected(SignCharacter);
-			}
-			else /*std::is_unsigned_v<T>*/ {
-				sign = (str[0] == '+') ? +1 : -1;
-				str.remove_prefix(1);
-			}
-		}
-
-		T result {};
-		auto number = Base10::parse_n<T>(str);
-		if (!number) {
-			return std::unexpected(errorFrom<Base10>(number.error()));
-		}
-		result = *number;
-
-		return sign * result;
-	}
+	static auto integerParse(const Token tkn) -> Expected<T>;
 
 	template <std::floating_point T>
-	static auto floatParse(const Token tkn) -> Expected<T> {
-		auto str = tkn.string;
+	static auto floatParse(const Token tkn) -> Expected<T>;
+};
 
-		int sign = 1;
-		if (Util::isAny(str[0], "+-")) {
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+template <std::integral T>
+auto ParserBase::integerParse(const Token tkn) -> Expected<T> {
+	auto str = tkn.string;
+
+	int sign = 1;
+	if (Util::isAny(str[0], "+-")) {
+		if constexpr (std::is_signed_v<T>) {
+			return std::unexpected(SignCharacter);
+		}
+		else /*std::is_unsigned_v<T>*/ {
 			sign = (str[0] == '+') ? +1 : -1;
 			str.remove_prefix(1);
 		}
-
-		T result {};
-		if (std::size_t c = ranges::count(str, '.'); c == 0) {
-			auto n = integerParse<std::size_t>(Token {str});
-			if (!n) return std::unexpected(n.error());
-			result = *n;
-		}
-		else if (c == 1) {
-			auto headStr = str.substr(0uz, str.find('.'));
-			auto tailStr = str.substr(str.find('.') + 1);
-
-			if (headStr.empty() && tailStr.empty()) {
-				return std::unexpected(NumberSize);
-			}
-
-			T head=0, tail=0;
-			if (!headStr.empty()) {
-				auto h = integerParse<std::size_t>(Token {headStr});
-				if (!h) return std::unexpected(h.error());
-				head = *h;
-			}
-			if (!tailStr.empty()) {
-				// Remove trailing 0's out of courtesy.
-				tailStr = tailStr.substr(0uz,
-					tailStr.find_last_not_of('0') + 1
-				);
-
-				auto t = integerParse<std::size_t>(Token {tailStr});
-				if (!t) return std::unexpected(t.error());
-				tail = *t;
-			}
-
-			result = head + tail * Util::pow(0.1, tailStr.size());
-		}
-		else return std::unexpected(ForeignDigit);
-
-		return sign * result;
 	}
-};
+
+	T result {};
+	auto number = Base10::parse_n<T>(str);
+	if (!number) {
+		return std::unexpected(errorFrom<Base10>(number.error()));
+	}
+	result = *number;
+
+	return sign * result;
+}
+
+template <std::floating_point T>
+auto ParserBase::floatParse(const Token tkn) -> Expected<T> {
+	auto str = tkn.string;
+
+	int sign = 1;
+	if (Util::isAny(str[0], "+-")) {
+		sign = (str[0] == '+') ? +1 : -1;
+		str.remove_prefix(1);
+	}
+
+	T result {};
+	if (std::size_t c = ranges::count(str, '.'); c == 0) {
+		auto n = integerParse<std::size_t>(Token {str});
+		if (!n) return std::unexpected(n.error());
+		result = *n;
+	}
+	else if (c == 1) {
+		auto headStr = str.substr(0uz, str.find('.'));
+		auto tailStr = str.substr(str.find('.') + 1);
+
+		if (headStr.empty() && tailStr.empty()) {
+			return std::unexpected(NumberSize);
+		}
+
+		T head=0, tail=0;
+		if (!headStr.empty()) {
+			auto h = integerParse<std::size_t>(Token {headStr});
+			if (!h) return std::unexpected(h.error());
+			head = *h;
+		}
+		if (!tailStr.empty()) {
+			// Remove trailing 0's out of courtesy.
+			tailStr = tailStr.substr(0uz,
+				tailStr.find_last_not_of('0') + 1
+			);
+
+			auto t = integerParse<std::size_t>(Token {tailStr});
+			if (!t) return std::unexpected(t.error());
+			tail = *t;
+		}
+
+		result = head + tail * Util::pow(0.1, tailStr.size());
+	}
+	else return std::unexpected(ForeignDigit);
+
+	return sign * result;
+}

@@ -4,14 +4,6 @@
 #include <stack>
 #include <optional>
 
-void ParserBase::SourcePos::next() {
-	col++;
-}
-
-void ParserBase::SourcePos::next(char c) {
-	if (c == '\n') row++, col=0; else col++;
-}
-
 /* ~~ Raw Parser ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto RawFormat::parse(std::string_view str)
@@ -181,115 +173,20 @@ auto SketchFormat::elementParse(TokenSpan tokens)
 /* ~~ Element Parsers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 auto SketchFormat::typeBrushParse(TokenSpan tokens)
--> Expected<Element> {
-	if (tokens.empty()) return Unexpected(EmptyElement);
-	if (tokens[0] != Token {"["}) return Unexpected(MissingBracketLeft);
-
-	auto it = tokens.begin();
-	auto contents = parenParse(tokens, it);
-	if (!contents) return Unexpected(contents.error(), *it);
-
-	std::vector<Atom::Stroke> strokes {};
-	strokes.reserve(contents->size());
-
-	if (tokens.size()%2 != 0) return Unexpected(ElementBrushSize);
-	// for (auto brushTokens : *contents | views::chunk(2)) {
-	// 	auto stroke = atomStrokeBrushParse(brushTokens);
-	// 	if (!stroke) return Unexpected(stroke.error());
-	// 	strokes.push_back(*stroke);
-	// }
-	for (auto jt=contents->begin(); jt!=contents->end(); /**/) {
-		auto stroke = atomStrokeBrushParse({jt, 2uz});
-		if (!stroke) return Unexpected(stroke.error(), *jt);
-		strokes.push_back(*stroke);
-		std::advance(jt,2);
-	}
-
-	auto modifiers = modsStrokeParse(
-		Util::subspan(tokens, it, tokens.end())
-	);
-	if (!modifiers) return Unexpected(modifiers.error());
-
-	return Brush {strokes, *modifiers};
-}
+-> Expected<Element>
+{ return parseStroke<Brush, 2>(tokens, atomStrokeBrushParse); }
 
 auto SketchFormat::typePencilParse(TokenSpan tokens)
--> Expected<Element> {
-	if (tokens.empty()) return Unexpected(EmptyElement);
-	if (tokens[0] != Token {"["}) return Unexpected(MissingBracketLeft);
-
-	auto it = tokens.begin();
-	auto contents = parenParse(tokens, it);
-	if (!contents) return Unexpected(contents.error(), *it);
-
-	std::vector<Atom::FlatStroke> strokes {};
-	strokes.reserve(contents->size());
-
-	for (const Token tkn : *contents) {
-		auto stroke = atomStrokeDataParse({&tkn, 1uz});
-		if (!stroke) return Unexpected(stroke.error());
-		strokes.push_back(*stroke);
-	}
-
-	auto modifiers = modsStrokeParse(
-		Util::subspan(tokens, it, tokens.end())
-	);
-	if (!modifiers) return Unexpected(modifiers.error());
-
-	return Pencil {strokes, *modifiers};
-}
+-> Expected<Element>
+{ return parseStroke<Pencil, 1>(tokens, atomStrokeDataParse); }
 
 auto SketchFormat::typeDataParse(TokenSpan tokens)
--> Expected<Element> {
-	if (tokens.empty()) return Unexpected(EmptyElement);
-	if (tokens[0] != Token {"["}) return Unexpected(MissingBracketLeft);
-
-	auto it = tokens.begin();
-	auto contents = parenParse(tokens, it);
-	if (!contents) return Unexpected(contents.error(), *it);
-
-	std::vector<Atom::FlatStroke> strokes {};
-	strokes.reserve(contents->size());
-
-	for (const Token tkn : *contents) {
-		auto stroke = atomStrokeDataParse({&tkn, 1uz});
-		if (!stroke) return Unexpected(stroke.error());
-		strokes.push_back(*stroke);
-	}
-
-	auto modifiers = modsStrokeParse(
-		Util::subspan(tokens, it, tokens.end())
-	);
-	if (!modifiers) return Unexpected(modifiers.error());
-
-	return Data {strokes, *modifiers};
-}
+-> Expected<Element>
+{ return parseStroke<Data, 1>(tokens, atomStrokeDataParse); }
 
 auto SketchFormat::typeRawParse(TokenSpan tokens)
--> Expected<Element> {
-	if (tokens.empty()) return Unexpected(EmptyElement);
-	if (tokens[0] != Token {"["}) return Unexpected(MissingBracketLeft);
-
-	auto it = tokens.begin();
-	auto contents = parenParse(tokens, it);
-	if (!contents) return Unexpected(contents.error(), *it);
-
-	std::vector<Atom::FlatStroke> strokes {};
-	strokes.reserve(contents->size());
-
-	for (const Token tkn : *contents) {
-		auto stroke = atomStrokeRawParse({&tkn, 1uz});
-		if (!stroke) return Unexpected(stroke.error());
-		strokes.push_back(*stroke);
-	}
-
-	auto modifiers = modsStrokeParse(
-		Util::subspan(tokens, it, tokens.end())
-	);
-	if (!modifiers) return Unexpected(modifiers.error());
-
-	return Data {strokes, *modifiers};
-}
+-> Expected<Element>
+{ return parseStroke<Data, 1>(tokens, atomStrokeRawParse); }
 
 auto SketchFormat::typeMarkerParse(TokenSpan tokens)
 -> Expected<Element> {
