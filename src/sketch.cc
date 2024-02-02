@@ -7,20 +7,37 @@ namespace
 {
 	using namespace Atom;
 
-	auto flattenStrokes(std::span<const Stroke> strokes) {
-		std::vector<FlatStroke> result {};
-		result.reserve(strokes.size());
-
-		for (const Stroke& s : strokes) {
-			FlatStroke subResult {};
-			for (const auto& p : s.points) {
-				// Ignore p.pressure ... (for now).
-				subResult.points.emplace_back(p.x, p.y);
-			}
-			result.push_back(std::move(subResult));
+	auto renderStroke(const Stroke s) {
+		FlatStroke result {};
+		for (const auto& p : s.points) {
+			// Ignore p.pressure ... (for now).
+			result.points.emplace_back(p.x, p.y);
 		}
-
 		return result;
+	}
+
+	auto renderStrokes(std::span<const Stroke> strokes) {
+		return strokes
+			| views::transform(renderStroke)
+			| ranges::to<std::vector>();
+	}
+
+	auto strokeModsReduce(StrokeModifiers mods) -> StrokeModifiers {
+		// Reduce all adjacent affine modifiers to lessen
+		// computation on strokes, also to hold floating-
+		// point -> int rounding for as long as possible.
+		if (mods.size() < 2) return mods;
+		for (auto it = mods.begin(), next = it
+		;    it != mods.end(); it = next) {
+			next = std::next(it);
+			auto* left  = std::get_if<Mod::Affine>(&*it);
+			auto* right = std::get_if<Mod::Affine>(&*next);
+			if (!left || !right) continue;
+
+			*right = *left * *right;
+			next = mods.erase(it);
+		}
+		return mods;
 	}
 }
 
@@ -28,17 +45,25 @@ namespace
 
 auto Sketch::render() const -> FlatSketch {
 	FlatSketch result {};
-	auto append = [&result](ranges::input_range auto&& r) {
-		ranges::copy(r, std::back_inserter(result.strokes));
+	auto append = [](auto& v, ranges::input_range auto&& r) {
+		ranges::copy(r, std::back_inserter(v));
 	};
 
-	for (const auto& elem : elements) {
-		std::visit(Util::Overloaded {
-			[&](const Brush&  e) { append(flattenStrokes(e.atoms)); },
-			[&](const Pencil& e) { append(e.atoms); },
-			[&](const Data&   e) { append(e.atoms); },
-			[&](const auto&) {},
-		}, elem);
+	for (const auto& variant : elements) {
+		std::visit([&]<typename T>(const T& e) {
+			if constexpr (HoldsStrokeMods<T>) {
+				auto mods = strokeModsReduce(e.modifiers);
+				std::vector<Stroke> strokes {std::from_range, e.atoms};
+
+				for (const auto& variant : mods) {
+					std::visit([&strokes](const auto& mod) {
+						strokes = mod(strokes);
+					}, variant);
+				}
+
+				append(result.strokes, renderStrokes(strokes));
+			}
+		}, variant);
 	}
 
 	return result;

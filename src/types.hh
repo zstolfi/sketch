@@ -4,11 +4,23 @@
 #include <variant>
 #include <vector>
 #include <span>
+#include "util.hh"
 
 /* ~~ Atom Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 namespace Atom
 {
+	struct FlatStroke {
+		struct Point {
+			int x, y;
+			Point(int x, int y);
+		};
+		std::vector<Point> points;
+
+		FlatStroke();
+		FlatStroke(std::vector<Point>);
+	};
+
 	struct Stroke {
 		struct Point {
 			int x, y; double pressure;
@@ -19,18 +31,7 @@ namespace Atom
 
 		Stroke();
 		Stroke(unsigned d, std::vector<Point>);
-	};
-
-	struct FlatStroke {
-		struct Point {
-			int x, y;
-			Point(int x, int y);
-		};
-		std::vector<Point> points;
-
-		FlatStroke();
-		FlatStroke(std::vector<Point>);
-		operator Stroke();
+		Stroke(const FlatStroke&);
 	};
 
 	// struct Pattern { /* ... */ };
@@ -90,11 +91,20 @@ using MarkerModifiers = std::vector<Mod::Of_Marker>;
 
 template <typename A, typename M>
 struct Element_Base { A atoms; M modifiers; };
-
 struct Brush  : Element_Base <StrokeAtoms    , StrokeModifiers> {};
 struct Pencil : Element_Base <FlatStrokeAtoms, StrokeModifiers> {};
 struct Data   : Element_Base <FlatStrokeAtoms, StrokeModifiers> {};
 struct Marker : Element_Base <MarkerAtom     , MarkerModifiers> {};
+
+#define Concept(Name, ...) \
+	template <typename T> concept Name = Util::IsAnyType<T, __VA_ARGS__>
+Concept(HoldsStrokeAtoms    , Brush);
+Concept(HoldsFlatStrokeAtoms, Pencil, Data);
+Concept(HoldsMarkerAtom     , Marker);
+
+Concept(HoldsStrokeMods     , Brush, Pencil, Data);
+Concept(HoldsMarkerMods     , Marker);
+#undef Concept
 
 using Element = std::variant<
 	Brush, Pencil, Data,
@@ -103,13 +113,11 @@ using Element = std::variant<
 
 /* ~~ Main Sketch Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-struct Sketch;
 struct FlatSketch {
 	std::vector<Atom::FlatStroke> strokes;
 
 	FlatSketch();
 	FlatSketch(std::vector<Atom::FlatStroke>);
-	operator Sketch();
 };
 
 struct Sketch {
@@ -117,6 +125,7 @@ struct Sketch {
 
 	Sketch();
 	Sketch(std::vector<Element>);
+	Sketch(const FlatSketch&);
 	auto render() const -> FlatSketch;
 };
 

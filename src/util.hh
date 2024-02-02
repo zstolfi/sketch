@@ -13,8 +13,8 @@ namespace Util
 	template <typename... Ts>
 	struct Overloaded : Ts... { using Ts::operator()...; };
 
-	template <typename T, typename... Ts>
-	static constexpr bool isAny(T x, Ts... args) {
+	template <typename T, typename... Rest>
+	static constexpr bool isAny(T x, Rest... rest) {
 		auto compare = [](T x, auto arg) {
 			// Specialization for looking up chars in a string:
 			if constexpr (requires { std::string_view {arg}; }) {
@@ -25,8 +25,11 @@ namespace Util
 			}
 		};
 
-		return (compare(x,args) || ... );
+		return (compare(x,rest) || ... );
 	}
+
+	template <typename T, typename... Rest>
+	concept IsAnyType = (std::is_same_v<T, Rest> || ... );
 
 	// Template-argument ready string literal
 	template <std::size_t N>

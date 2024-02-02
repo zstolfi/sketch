@@ -28,22 +28,21 @@ Atom::FlatStroke::FlatStroke(std::vector<Point> v)
 Atom::FlatStroke::Point::Point(int x, int y)
 : x{x}, y{y} {}
 
-/* ~~ Up-Cast Operators ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ From Flat Constructors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-Atom::FlatStroke::operator Stroke() {
-	auto toStrokePoint = [](Atom::FlatStroke::Point flat) {
-		return Atom::Stroke::Point {flat.x, flat.y, 1.0};
+Atom::Stroke::Stroke(const Atom::FlatStroke& flat) {
+	auto toStrokePoint = [](Atom::FlatStroke::Point p) {
+		return Atom::Stroke::Point {p.x, p.y, 1.0};
 	};
 
-	return Stroke {3,
-		points
+	diameter = 3;
+	points = flat.points
 		| views::transform(toStrokePoint)
-		| ranges::to<std::vector>()
-	};
+		| ranges::to<std::vector>();
 }
 
-FlatSketch::operator Sketch() {
-	return Sketch ({ Data {strokes} });
+Sketch::Sketch(const FlatSketch& flat) {
+	elements = { Data {flat.strokes} };
 }
 
 /* ~~ Modifier Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -143,7 +142,7 @@ std::ostream& operator<<(std::ostream& os, const Element& element) {
 		[&os](const Marker&) { os << "Marker "; },
 	}, element);
 
-	std::visit([&os](const auto& e) {
+	std::visit([&os](auto&& e) {
 		os << e.atoms << e.modifiers;
 	}, element);
 
