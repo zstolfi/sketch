@@ -1,7 +1,7 @@
 #pragma once
 #include "util.hh"
 #include <limits>
-#include <expected>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <concepts>
@@ -62,8 +62,6 @@ struct Base {
 
 	/* ~~ Member Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-	enum ParseError { ForeignDigit, StringSize/*, IntegerSize*/ };
-
 	static auto isDigit(char c) -> bool {
 		return Util::contains(Alphabet, c);
 	}
@@ -79,13 +77,12 @@ struct Base {
 
 	template <std::size_t N, std::integral T>
 	requires (N <= MaxDigitCount<T>())
-	static auto parse(std::string_view str)
-	-> std::expected<T, ParseError> {
-		if (str.size() > N) return std::unexpected(StringSize);
+	static auto parse(std::string_view str) -> std::optional<T> {
+		if (str.size() > N) return std::nullopt;
 
 		T result {};
 		for (char c : str) {
-			if (!isDigit(c)) return std::unexpected(ForeignDigit);
+			if (!isDigit(c)) return std::nullopt;
 			result = B * result + digitValue(c);
 		}
 
@@ -117,15 +114,14 @@ struct Base {
 
 	template <std::integral T>
 	requires (std::is_unsigned_v<T>)
-	static auto parse_n(std::string_view str)
-	-> std::expected<T, ParseError> {
+	static auto parse_n(std::string_view str) -> std::optional<T> {
 		if (str.size() > MaxDigitCount<T>()) {
-			return std::unexpected(StringSize);
+			return std::nullopt;
 		}
 
 		T result {};
 		for (char c : str) {
-			if (!isDigit(c)) return std::unexpected(ForeignDigit);
+			if (!isDigit(c)) return std::nullopt;
 			result = B * result + digitValue(c); 
 		}
 
@@ -141,6 +137,55 @@ struct Base {
 			result = Alphabet[x % B] + result;
 			x /= B;
 		} while (x > 0);
+
+		return result;
+	}
+
+	/* ~~ Parse N Tuples ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+	template <std::size_t N, std::integral T>
+	struct Number_t { static constexpr auto size = N; using type = T; };
+
+	template <typename... Nums, typename... Args, typename Res>
+	static auto parseTuples(
+		std::string_view str,
+		std::tuple<Nums...> nums,
+		Res (*makeObj)(Args...)
+	) -> std::optional<std::vector<Res>> {
+		static_assert(sizeof...(Nums) == sizeof...(Args));
+
+		auto parseI = [&str]<std::size_t N, std::integral T>(
+			std::size_t& i, Number_t<N,T>
+		) {
+			auto result = parse<N,T>(str.substr(i, N));
+			i += N; return result;
+		};
+
+		constexpr std::size_t total = std::apply([](auto&&... num) {
+			return ( num.size + ... );
+		}, nums);
+
+		std::vector<Res> result {};
+
+		if (str.size()%total != 0) return std::nullopt;
+		for (std::size_t i=0; i<str.size(); i+=total) {
+			std::tuple<std::optional<Args>...> parsed {};
+
+			[&]<std::size_t... I>(std::index_sequence<I...>) {
+				(
+					(std::get<I>(parsed) = parseI(i, std::get<I>(nums)))
+					, ...
+				);
+			} (std::make_index_sequence<sizeof...(Nums)> {});
+
+			bool allValid = true;
+			std::apply([&](auto&&... res) {
+				if (!( res && ... )) allValid = false;
+				else result.push_back(makeObj(*res ...));
+			}, parsed);
+
+			if (!allValid) return std::nullopt;
+		}
 
 		return result;
 	}

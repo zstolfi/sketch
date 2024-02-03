@@ -13,6 +13,7 @@ namespace Util
 	template <typename... Ts>
 	struct Overloaded : Ts... { using Ts::operator()...; };
 
+	// Shorthand for a bunch of or-statements
 	template <typename T, typename... Rest>
 	static constexpr bool isAny(T x, Rest... rest) {
 		auto compare = [](T x, auto arg) {
@@ -28,6 +29,7 @@ namespace Util
 		return (compare(x,rest) || ... );
 	}
 
+	// Similar shorthand but for types
 	template <typename T, typename... Rest>
 	concept IsAnyType = (std::is_same_v<T, Rest> || ... );
 

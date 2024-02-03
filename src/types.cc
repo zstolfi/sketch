@@ -164,8 +164,9 @@ std::ostream& operator<<(std::ostream& os, const StrokeAtoms& v) {
 			os << Base36::toString<2,unsigned>(pressure)
 			   << (--i ? "\'" : "");
 		}
+		os << " ";
 	}
-	return os << " ]";
+	return os << "]";
 }
 
 std::ostream& operator<<(std::ostream& os, const FlatStrokeAtoms& v) {

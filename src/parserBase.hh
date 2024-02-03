@@ -19,6 +19,7 @@ protected:
 		ModArraySize, MalformedModArray,
 		ModUppercaseSize, MalformedModUppercase,
 		TickmarkOrdering, SignCharacter, NumberSize, NumberError,
+		MalformedNumberTuple,
 	};
 
 public:
@@ -84,13 +85,6 @@ protected:
 		return std::unexpected {error};
 	}
 
-	template <typename Base>
-	static constexpr auto errorFrom(Base::ParseError e) -> ParseError {
-		if (e == Base::ForeignDigit) return ForeignDigit;
-		if (e == Base::StringSize)   return NumberSize;
-		return NumberError;
-	};
-
 	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	static constexpr auto isWhitespace(char c) -> bool {
@@ -117,7 +111,7 @@ auto ParserBase::integerParse(const Token tkn) -> Expected<T> {
 	int sign = 1;
 	if (Util::isAny(str[0], "+-")) {
 		if constexpr (std::is_signed_v<T>) {
-			return std::unexpected(SignCharacter);
+			return Unexpected(SignCharacter, tkn);
 		}
 		else /*std::is_unsigned_v<T>*/ {
 			sign = (str[0] == '+') ? +1 : -1;
@@ -127,9 +121,7 @@ auto ParserBase::integerParse(const Token tkn) -> Expected<T> {
 
 	T result {};
 	auto number = Base10::parse_n<T>(str);
-	if (!number) {
-		return std::unexpected(errorFrom<Base10>(number.error()));
-	}
+	if (!number) return Unexpected(NumberError, tkn);
 	result = *number;
 
 	return sign * result;
@@ -148,7 +140,7 @@ auto ParserBase::floatParse(const Token tkn) -> Expected<T> {
 	T result {};
 	if (std::size_t c = ranges::count(str, '.'); c == 0) {
 		auto n = integerParse<std::size_t>(Token {str});
-		if (!n) return std::unexpected(n.error());
+		if (!n) return Unexpected(NumberError, tkn);
 		result = *n;
 	}
 	else if (c == 1) {
@@ -156,13 +148,13 @@ auto ParserBase::floatParse(const Token tkn) -> Expected<T> {
 		auto tailStr = str.substr(str.find('.') + 1);
 
 		if (headStr.empty() && tailStr.empty()) {
-			return std::unexpected(NumberSize);
+			return Unexpected(NumberSize, tkn);
 		}
 
 		T head=0, tail=0;
 		if (!headStr.empty()) {
 			auto h = integerParse<std::size_t>(Token {headStr});
-			if (!h) return std::unexpected(h.error());
+			if (!h) return Unexpected(NumberError, tkn);
 			head = *h;
 		}
 		if (!tailStr.empty()) {
@@ -172,13 +164,13 @@ auto ParserBase::floatParse(const Token tkn) -> Expected<T> {
 			);
 
 			auto t = integerParse<std::size_t>(Token {tailStr});
-			if (!t) return std::unexpected(t.error());
+			if (!t) return Unexpected(NumberError, tkn);
 			tail = *t;
 		}
 
 		result = head + tail * Util::pow(0.1, tailStr.size());
 	}
-	else return std::unexpected(ForeignDigit);
+	else return Unexpected(ForeignDigit, tkn);
 
 	return sign * result;
 }

@@ -31,9 +31,6 @@ private:
 	static auto tokenize(std::string_view)
 	-> Expected<std::vector<Token>>;
 
-	static auto parenParse(TokenSpan, TokenIter&)
-	-> Expected<TokenSpan>;
-
 	static auto isStringLiteral(const Token) -> bool;
 	static auto removeTicks(std::string_view) -> Expected<std::string>;
 
@@ -59,6 +56,8 @@ private:
 	static Parser/*        │     */<Mod::Of_Stroke> modArrayParse;
 	static Parser/*        └─*/<MarkerModifiers>    modsMarkerParse;
 	static Parser/*              */<Mod::Of_Marker> modUppercaseParse;
+
+	static Parser<TokenSpan, TokenIter&> parenParse;
 
 	template <typename E, std::size_t N, typename Atom_t>
 	static Parser<Element, Parser<Atom_t>&> parseStroke;
