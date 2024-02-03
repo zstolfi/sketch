@@ -168,7 +168,7 @@ struct Base {
 		std::vector<Res> result {};
 
 		if (str.size()%total != 0) return std::nullopt;
-		for (std::size_t i=0; i<str.size(); i+=total) {
+		for (std::size_t i=0; i<str.size(); /**/) {
 			std::tuple<std::optional<Args>...> parsed {};
 
 			[&]<std::size_t... I>(std::index_sequence<I...>) {
