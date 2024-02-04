@@ -215,25 +215,13 @@ auto SketchFormat::atomStrokeBrushParse(TokenSpan tokens)
 	auto strokeStr = removeTicks(tokens[1].string);
 	if (!strokeStr) return Unexpected(strokeStr.error(), tokens[1]);
 
-	// // Go big or go home.
-	// auto points = Base36::parseTuples(
-	// 	*strokeStr,
-	// 	+[](Base36::Number_t<3,  signed> x
-	// 	,   Base36::Number_t<3,  signed> y
-	// 	,   Base36::Number_t<2,unsigned> p) {
-	// 		return Atom::Stroke::Point {*x, *y, *p/double(36*36-1)};
-	// 	}
-	// );
-
+	// Go big or go home.
 	auto points = Base36::parseTuples(
 		*strokeStr,
-		std::tuple {
-			Base36::Number_t<3,  signed> {},
-			Base36::Number_t<3,  signed> {},
-			Base36::Number_t<2,unsigned> {},
-		},
-		+[](signed x, signed y, unsigned p) {
-			return Atom::Stroke::Point {x, y, p/double(36*36-1)};
+		+[](Base36::Number_t<3,  signed> x
+		,   Base36::Number_t<3,  signed> y
+		,   Base36::Number_t<2,unsigned> p) {
+			return Atom::Stroke::Point {*x, *y, *p/double(36*36-1)};
 		}
 	);
 	if (!points) return Unexpected(MalformedNumberTuple, tokens[1]);
@@ -250,12 +238,9 @@ auto SketchFormat::atomStrokeDataParse(TokenSpan tokens)
 	
 	auto points = Base36::parseTuples(
 		*strokeStr,
-		std::tuple {
-			Base36::Number_t<3,signed> {},
-			Base36::Number_t<3,signed> {},
-		},
-		+[](signed x, signed y) {
-			return Atom::FlatStroke::Point {x, y};
+		+[](Base36::Number_t<3,signed> x
+		,   Base36::Number_t<3,signed> y) {
+			return Atom::FlatStroke::Point {*x, *y};
 		}
 	);
 	if (!points) return Unexpected(MalformedNumberTuple, tokens[0]);
@@ -272,12 +257,9 @@ auto SketchFormat::atomStrokeRawParse(TokenSpan tokens)
 	
 	auto points = Base36::parseTuples(
 		*strokeStr,
-		std::tuple {
-			Base36::Number_t<2,unsigned> {},
-			Base36::Number_t<2,unsigned> {},
-		},
-		+[](signed x, signed y) {
-			return Atom::FlatStroke::Point {x, y};
+		+[](Base36::Number_t<2,unsigned> x
+		,   Base36::Number_t<2,unsigned> y) {
+			return Atom::FlatStroke::Point {signed(*x), signed(*y)};
 		}
 	);
 	if (!points) return Unexpected(MalformedNumberTuple, tokens[0]);

@@ -144,16 +144,21 @@ struct Base {
 	/* ~~ Parse N Tuples ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	template <std::size_t N, std::integral T>
-	struct Number_t { static constexpr auto size = N; using type = T; };
+	struct Number_t {
+		using type = T;
+		static constexpr auto size {N};
+		T value {};
+		constexpr Number_t() {}
+		constexpr Number_t(T t) : value{t} {}
+		constexpr T operator*() { return value; }
+	};
 
-	template <typename... Nums, typename... Args, typename Res>
-	static auto parseTuples(
+	template <typename... Nums, typename Res>
+	static std::optional<std::vector<Res>>
+	parseTuples(
 		std::string_view str,
-		std::tuple<Nums...> nums,
-		Res (*makeObj)(Args...)
-	) -> std::optional<std::vector<Res>> {
-		static_assert(sizeof...(Nums) == sizeof...(Args));
-
+		Res (*makeObj)(Nums...)
+	) {
 		auto parseI = [&str]<std::size_t N, std::integral T>(
 			std::size_t& i, Number_t<N,T>
 		) {
@@ -161,15 +166,18 @@ struct Base {
 			i += N; return result;
 		};
 
-		constexpr std::size_t total = std::apply([](auto&&... num) {
+		constexpr auto nums = std::tuple<Nums...> {};		
+		constexpr auto stride = std::apply([](auto&&... num) {
 			return ( num.size + ... );
 		}, nums);
 
 		std::vector<Res> result {};
 
-		if (str.size()%total != 0) return std::nullopt;
+		if (str.size()%stride != 0) return std::nullopt;
 		for (std::size_t i=0; i<str.size(); /**/) {
-			std::tuple<std::optional<Args>...> parsed {};
+			auto parsed = std::tuple<
+				std::optional<typename Nums::type>...
+			> {};
 
 			[&]<std::size_t... I>(std::index_sequence<I...>) {
 				(
