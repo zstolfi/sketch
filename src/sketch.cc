@@ -28,7 +28,7 @@ namespace
 		// point -> int rounding for as long as possible.
 		if (mods.size() < 2) return mods;
 		for (auto it = mods.begin(), next = it
-		;    it != mods.end(); it = next) {
+		;    it != --mods.end(); it = next) {
 			next = std::next(it);
 			auto* left  = std::get_if<Mod::Affine>(&*it);
 			auto* right = std::get_if<Mod::Affine>(&*next);
@@ -50,10 +50,11 @@ auto Sketch::render() const -> FlatSketch {
 	};
 
 	for (const auto& variant : elements) {
-		std::visit([&]<typename T>(const T& e) {
+		std::visit([&]<typename T>(const T& elem) {
 			if constexpr (HoldsStrokeMods<T>) {
-				auto mods = strokeModsReduce(e.modifiers);
-				std::vector<Stroke> strokes {std::from_range, e.atoms};
+				auto mods = strokeModsReduce(elem.modifiers);
+				auto strokes = elem.atoms
+					| ranges::to<std::vector<Stroke>>();
 
 				for (const auto& variant : mods) {
 					std::visit([&strokes](const auto& mod) {

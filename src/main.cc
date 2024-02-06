@@ -12,31 +12,24 @@ struct AppState {
 	bool quit = false;
 
 	// Signals (will refactor soon)
-	bool mouseDown {}, mouseMove {}, mouseUp {};
+	bool mouseDown {}, mouseMove {}, mouseUp {}, undo{};
 	
-	FlatSketch example {};
-	Sketch sketch {};
+	std::vector<const Sketch> history {Sketch {}};
 	Atom::Stroke currentStroke {};
 
 	Atom::Stroke::Point cursor {0, 0, 0.0};
 	bool pressed = false;
 	bool onScreen = false;
 	unsigned brushSize = 3;
-
 };
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 void draw(Window& w, Renderer& r, AppState& s) {
-	// if (!s.onScreen) {
-	// 	std::cout << "Cursor is off screen!\n";
-	// }
-	// else {
-	// 	std::cout << (s.pressed ? "DOWN" : "UP") << "\t";
-	// 	std::cout << "x: " << s.cursor.x << "\t"
-	// 	          << "y: " << s.cursor.y << "\t"
-	// 	          << "p: " << s.cursor.pressure << "\n";
-	// }
+	if (s.undo && s.history.size() > 1) {
+		std::cout << "undoing!\t" << s.history.size() << "\n";
+		s.history.pop_back();
+	}
 
 	if (s.mouseDown) {
 		s.currentStroke.points.clear();
@@ -48,8 +41,10 @@ void draw(Window& w, Renderer& r, AppState& s) {
 		s.currentStroke.points.push_back(s.cursor);
 	}
 
-	auto& elements = s.sketch.elements;
 	if (s.mouseUp) {
+		Sketch nextState = s.history.back();
+		auto& elements = nextState.elements;
+
 		Brush& latestBrush = 
 			(elements.size() == 0
 			|| !std::holds_alternative<Brush>(elements.back()))
@@ -61,14 +56,17 @@ void draw(Window& w, Renderer& r, AppState& s) {
 		);
 		s.currentStroke.points.clear();
 
-		r.clear();
-		r.displayRaw(s.sketch.render().strokes);
-		w.updatePixels();
+		s.history.push_back(nextState);
 	}
+
+	if (s.history.empty()) return;
+	r.clear();
+	r.displayRaw(s.history.back().render().strokes);
+	w.updatePixels();
 }
 
 bool detectEvents(AppState& s) {
-	s.mouseDown = s.mouseMove = s.mouseUp = false;
+	s.mouseDown = s.mouseMove = s.mouseUp = s.undo = false;
 	s.onScreen = SDL_GetMouseFocus() == nullptr;
 
 	bool input = false;
@@ -105,6 +103,9 @@ bool detectEvents(AppState& s) {
 			break;
 		case SDLK_v:
 			JS::paste();
+			break;
+		case SDLK_z:
+			s.undo = true;
 			break;
 		} break;
 	} }
@@ -148,7 +149,7 @@ int main() {
 		std::cout << "\n#### ELEMENTS ####\n";
 		if (auto sketch = SketchFormat::parse(inputString)) {
 			std::cout << *sketch << "\n";
-			state.example = sketch->render();
+			state.history.push_back(*sketch);
 		}
 		else {
 			std::cout << "Parse error!\n";
