@@ -11,10 +11,26 @@
 struct AppState {
 	bool quit = false;
 
-	// Signals (will refactor soon)
-	bool mouseDown {}, mouseMove {}, mouseUp {}, undo{};
+	struct Signal {
+		bool mouseDown:1 {}, mouseMove:1 {}, mouseUp:1 {};
+		bool undo:1 {}, redo:1 {};
+
+		void clear() { *this = Signal {}; }
+	} signal;
 	
-	std::vector<const Sketch> history {Sketch {}};
+	class History {
+		std::vector<const Sketch> states {Sketch {}};
+		std::size_t head = 0;
+	public:
+		const Sketch& view() { return states[head]; }
+		void look_back   () { head -= (head > 0); }
+		void look_forward() { head += (head < states.size()-1); }
+		void push(const Sketch& s) {
+			states.resize(++head);
+			states.push_back(s);
+		}
+	} history;
+
 	Atom::Stroke currentStroke {};
 
 	Atom::Stroke::Point cursor {0, 0, 0.0};
@@ -26,48 +42,45 @@ struct AppState {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 void draw(Window& w, Renderer& r, AppState& s) {
-	if (s.undo && s.history.size() > 1) {
-		std::cout << "undoing!\t" << s.history.size() << "\n";
-		s.history.pop_back();
-	}
+	if (s.signal.undo) s.history.look_back();
+	if (s.signal.redo) s.history.look_forward();
 
-	if (s.mouseDown) {
+	if (s.signal.mouseDown) {
 		s.currentStroke.points.clear();
 		s.currentStroke.diameter = s.brushSize;
 		s.currentStroke.points.push_back(s.cursor);
 	}
 
-	if (s.mouseMove && s.pressed) {
+	if (s.signal.mouseMove && s.pressed) {
 		s.currentStroke.points.push_back(s.cursor);
 	}
 
-	if (s.mouseUp) {
-		Sketch nextState = s.history.back();
+	if (s.signal.mouseUp) {
+		Sketch nextState = s.history.view();
 		auto& elements = nextState.elements;
 
-		Brush& latestBrush = 
-			(elements.size() == 0
-			|| !std::holds_alternative<Brush>(elements.back()))
-		? (elements.push_back(Brush {}), std::get<Brush>(elements.back()))
-		: std::get<Brush>(elements.back());
+		if (elements.size() == 0
+		||  !std::holds_alternative<Brush>(elements.back())) {
+			elements.push_back(Brush {});
+		}
 
+		Brush& latestBrush = std::get<Brush>(elements.back());
 		latestBrush.atoms.push_back(
-			Atom::Stroke {s.brushSize, std::move(s.currentStroke.points)}
+			std::move(s.currentStroke)
 		);
-		s.currentStroke.points.clear();
 
-		s.history.push_back(nextState);
+		s.currentStroke.points.clear();
+		s.history.push(nextState);
 	}
 
-	if (s.history.empty()) return;
 	r.clear();
-	r.displayRaw(s.history.back().render().strokes);
+	r.displayRaw(s.history.view().render().strokes);
 	w.updatePixels();
 }
 
 bool detectEvents(AppState& s) {
-	s.mouseDown = s.mouseMove = s.mouseUp = s.undo = false;
 	s.onScreen = SDL_GetMouseFocus() == nullptr;
+	s.signal.clear();
 
 	bool input = false;
 	for (SDL_Event ev; SDL_PollEvent(&ev); input=true) {
@@ -76,7 +89,7 @@ bool detectEvents(AppState& s) {
 		s.quit = true;
 		break;
 	case SDL_MOUSEMOTION:
-		s.mouseMove = true;
+		s.signal.mouseMove = true;
 		s.cursor = {
 			ev.motion.x,
 			ev.motion.y,
@@ -84,12 +97,12 @@ bool detectEvents(AppState& s) {
 		};
 		break;
 	case SDL_MOUSEBUTTONDOWN:
-		s.mouseDown = true;
+		s.signal.mouseDown = true;
 		s.pressed = true;
 		s.cursor.pressure = JS::penPressure;
 		break;
 	case SDL_MOUSEBUTTONUP:
-		s.mouseUp = true;
+		s.signal.mouseUp = true;
 		s.pressed = false;
 		s.cursor.pressure = 0.0;
 		break;
@@ -105,7 +118,10 @@ bool detectEvents(AppState& s) {
 			JS::paste();
 			break;
 		case SDLK_z:
-			s.undo = true;
+			s.signal.undo = true;
+			break;
+		case SDLK_y:
+			s.signal.redo = true;
 			break;
 		} break;
 	} }
@@ -149,7 +165,7 @@ int main() {
 		std::cout << "\n#### ELEMENTS ####\n";
 		if (auto sketch = SketchFormat::parse(inputString)) {
 			std::cout << *sketch << "\n";
-			state.history.push_back(*sketch);
+			state.history.push(*sketch);
 		}
 		else {
 			std::cout << "Parse error!\n";

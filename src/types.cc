@@ -178,8 +178,9 @@ std::ostream& operator<<(std::ostream& os, const FlatStrokeAtoms& v) {
 			   << Base36::toString<3,signed>(p.y)
 			   << (--i ? "\'" : "");
 		}
+		os << " ";
 	}
-	return os << " ]";
+	return os << "]";
 }
 
 std::ostream& operator<<(std::ostream& os, const MarkerAtom& m) {

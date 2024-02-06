@@ -14,9 +14,12 @@ auto RawFormat::parse(std::string_view str)
 auto RawFormat::tokenize(std::string_view str)
 -> std::vector<Token> {
 	std::vector<Token> result {};
-
-	for (auto strokeStr : views::split(str, " ")) {
-		result.emplace_back(std::string_view {strokeStr});
+	for (std::size_t i=0, j=0; i<str.size(); i=j) {
+		while (i < str.size() && isWhitespace(str[i])) i++;
+		if (i == str.size()) break;
+		j = i;
+		while (j < str.size() && !isWhitespace(str[j])) j++;
+		result.emplace_back(str.substr(i, j-i));
 	}
 
 	return result;
@@ -28,16 +31,16 @@ auto RawFormat::rawParse(TokenSpan tokens)
 
 	for (Token tkn : tokens) {
 		Atom::FlatStroke stroke {};
-		auto str = tkn.string;
-
-		if (str.size()%4 != 0) return Unexpected(StrokeLength);
-		for (std::size_t i=0; i<str.size(); i+=4) {
-			auto x = Base36::parse<2,unsigned>(str.substr(i+0, 2));
-			auto y = Base36::parse<2,unsigned>(str.substr(i+2, 2));
-			if (!x || !y) return Unexpected(ForeignDigit);
-			stroke.points.emplace_back(*x, *y);
-		}
-		result.strokes.push_back(stroke);
+		auto points = Base36::parseTuples(
+			tkn.string,
+			+[](Base36::Number_t<2,unsigned> x
+			,   Base36::Number_t<2,unsigned> y) {
+				return Atom::FlatStroke::Point {int(*x), int(*y)};
+			}
+		);
+		if (!points) return Unexpected(MalformedNumberTuple, tkn);
+		
+		result.strokes.emplace_back(*points);
 	}
 
 	return result;
@@ -215,7 +218,6 @@ auto SketchFormat::atomStrokeBrushParse(TokenSpan tokens)
 	auto strokeStr = removeTicks(tokens[1].string);
 	if (!strokeStr) return Unexpected(strokeStr.error(), tokens[1]);
 
-	// Go big or go home.
 	auto points = Base36::parseTuples(
 		*strokeStr,
 		+[](Base36::Number_t<3,  signed> x
