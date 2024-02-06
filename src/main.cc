@@ -1,48 +1,84 @@
 #include <emscripten.h>
 #include <SDL2/SDL.h>
-#include <iostream>
-#include <fstream>
-#include <optional>
+
 #include "window.hh"
 #include "external.hh"
 #include "renderer.hh"
 #include "parsers.hh"
+#include <iostream>
+#include <fstream>
 
 struct AppState {
 	bool quit = false;
-	
-	FlatSketch example;
 
-	using Cursor = Atom::Stroke::Point;
-	std::optional<Cursor> cursor; // nullopt if off screen
+	// Signals (will refactor soon)
+	bool mouseDown {}, mouseMove {}, mouseUp {};
+	
+	FlatSketch example {};
+	Sketch sketch {};
+	Atom::Stroke currentStroke {};
+
+	Atom::Stroke::Point cursor {0, 0, 0.0};
 	bool pressed = false;
+	bool onScreen = false;
+	unsigned brushSize = 3;
+
 };
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-void draw(Window& w, Renderer& r, const AppState& s) {
-	if (!s.cursor) {
-		std::cout << "Cursor is off screen!\n";
+void draw(Window& w, Renderer& r, AppState& s) {
+	// if (!s.onScreen) {
+	// 	std::cout << "Cursor is off screen!\n";
+	// }
+	// else {
+	// 	std::cout << (s.pressed ? "DOWN" : "UP") << "\t";
+	// 	std::cout << "x: " << s.cursor.x << "\t"
+	// 	          << "y: " << s.cursor.y << "\t"
+	// 	          << "p: " << s.cursor.pressure << "\n";
+	// }
+
+	if (s.mouseDown) {
+		s.currentStroke.points.clear();
+		s.currentStroke.diameter = s.brushSize;
+		s.currentStroke.points.push_back(s.cursor);
 	}
-	else {
-		std::cout << (s.pressed ? "DOWN" : "UP") << "\t";
-		std::cout << "x: " << s.cursor->x << "\t"
-		          << "y: " << s.cursor->y << "\n";
+
+	if (s.mouseMove && s.pressed) {
+		s.currentStroke.points.push_back(s.cursor);
 	}
-	r.clear();
-	r.displayRaw(s.example.strokes);
-	w.updatePixels();
+
+	auto& elements = s.sketch.elements;
+	if (s.mouseUp) {
+		Brush& latestBrush = 
+			(elements.size() == 0
+			|| !std::holds_alternative<Brush>(elements.back()))
+		? (elements.push_back(Brush {}), std::get<Brush>(elements.back()))
+		: std::get<Brush>(elements.back());
+
+		latestBrush.atoms.push_back(
+			Atom::Stroke {s.brushSize, std::move(s.currentStroke.points)}
+		);
+		s.currentStroke.points.clear();
+
+		r.clear();
+		r.displayRaw(s.sketch.render().strokes);
+		w.updatePixels();
+	}
 }
 
 bool detectEvents(AppState& s) {
+	s.mouseDown = s.mouseMove = s.mouseUp = false;
+	s.onScreen = SDL_GetMouseFocus() == nullptr;
+
 	bool input = false;
-	for (SDL_Event ev; SDL_PollEvent(&ev); input=true)
+	for (SDL_Event ev; SDL_PollEvent(&ev); input=true) {
 	switch (ev.type) {
-	// if (SDL_GetMouseFocus() == nullptr) s.cursor = std::nullopt;
 	case SDL_QUIT:
 		s.quit = true;
 		break;
 	case SDL_MOUSEMOTION:
+		s.mouseMove = true;
 		s.cursor = {
 			ev.motion.x,
 			ev.motion.y,
@@ -50,12 +86,14 @@ bool detectEvents(AppState& s) {
 		};
 		break;
 	case SDL_MOUSEBUTTONDOWN:
+		s.mouseDown = true;
 		s.pressed = true;
-		s.cursor->pressure = JS::penPressure;
+		s.cursor.pressure = JS::penPressure;
 		break;
 	case SDL_MOUSEBUTTONUP:
+		s.mouseUp = true;
 		s.pressed = false;
-		s.cursor->pressure = 0.0;
+		s.cursor.pressure = 0.0;
 		break;
 	case SDL_KEYDOWN:
 		switch (ev.key.keysym.sym) {
@@ -69,7 +107,7 @@ bool detectEvents(AppState& s) {
 			JS::paste();
 			break;
 		} break;
-	}
+	} }
 	return input;
 }
 
@@ -124,14 +162,10 @@ int main() {
 		JS::listenForPenPressure();
 		// JS::listenForClipboard();
 
-		// Unsightly lambda expression syntax. This is the
-		// best way I can think of passing in arguments to
-		// appLoopBody while bottlenecked through a void*.
-		std::tuple userData { &window, &renderer, &state };
+		auto userData = std::tie(window, renderer, state);
 		emscripten_set_main_loop_arg(
 			[](void* data) {
-				auto [w,r,s] = *(decltype(userData)*)data;
-				appLoopBody(*w,*r,*s);
+				std::apply(appLoopBody, *(decltype(userData)*)data);
 			},
 			&userData,
 			0, true

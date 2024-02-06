@@ -30,6 +30,7 @@ namespace Atom
 		std::vector<Point> points;
 
 		Stroke();
+		// TODO: copy/move constructors
 		Stroke(unsigned d, std::vector<Point>);
 		Stroke(const FlatStroke&);
 	};
